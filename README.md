@@ -19,20 +19,36 @@ This project demonstrates essential API security concepts using **Express** and 
 
 ## Getting Started
 
-1. **Install dependencies**
+1.  **Prerequisites:**
+    *   Node.js and npm installed.
+    *   Docker and Docker Compose installed.
+    *   Kong Gateway running (e.g., via the provided `docker-compose.yml` or your own setup). Ensure Kong Admin API is accessible (typically `http://localhost:8001`).
+
+2.  **Clone the repository:**
+    ```bash
+    git clone <your-repo-url>
+    cd API-Security-with-API-Gateway-Management
     ```
+
+3.  **Install dependencies for the Node.js server:**
+    ```bash
     npm install
     ```
 
-2. **Configure environment variables**
-
-    Copy `.env.example` to `.env` and update as needed.
-
-3. **Start the server**
+4.  **Configure environment variables for the Node.js server:**
+    Copy `.env.example` to `.env`. The default `server_local_port=4000` should work with the Kong setup below.
+    ```bash
+    cp .env.example .env
     ```
+
+5.  **Start the Node.js API server:**
+    ```bash
     npm start
     ```
     Or, for development with hot reload:
-    ```
+    ```bash
     npm run dev
     ```
+    Your API server should now be running on `http://localhost:4000`.
+
+---
