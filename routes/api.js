@@ -6,14 +6,18 @@ router.get('/public', (_, res) => {
   res.json({ message: 'This is a public API response.' });
 });
 
-// API with Basic Authentication
+// API endpoint now secured by Kong (API Key)
 router.get('/secure', (req, res) => {
-  const apiKey = req.headers['x-api-key'];
-  if (apiKey === '123456') {
-    res.json({ message: 'Secure data access granted.' });
-  } else {
-    res.status(401).json({ error: 'Unauthorized – Invalid API Key' });
-  }
+  // If the request reaches here, Kong has successfully authenticated it.
+  // Kong forwards information about the authenticated consumer in headers.
+  const consumerUsername = req.headers['x-consumer-username']; // Kong adds this    
+  const consumerId = req.headers['x-consumer-id']; // Kong adds this
+
+  res.json({
+    message: 'Secure data access granted via Kong.',
+    consumerUsername: consumerUsername || 'N/A',
+    consumerId: consumerId || 'N/A'
+  });
 });
 
 export default router;
