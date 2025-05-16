@@ -9,7 +9,7 @@ This project demonstrates essential API security concepts using **Express** and 
 | Feature                        | Description                                                    | Status      |
 |---------------------------------|----------------------------------------------------------------|-------------|
 | **CORS Configuration**          | Restricts API access to trusted origins for enhanced security.  |  |
-| **API Key Authentication**      | Secures endpoints by requiring valid API keys.                  |  |
+| **API Key Authentication**      | Secures endpoints by requiring valid API keys.                  | Compele |
 | **JWT Authentication**          | Implements session management using JSON Web Tokens.            |  |
 | **Rate Limiting**               | Protects APIs from abuse by limiting request rates.             |  |
 | **Input Validation & Sanitization** | Ensures incoming data is safe and well-formed.             |  |
