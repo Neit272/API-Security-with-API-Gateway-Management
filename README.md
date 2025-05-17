@@ -8,7 +8,7 @@ This project demonstrates essential API security concepts using **Express** and 
 
 | Feature                        | Description                                                    | Status      |
 |---------------------------------|----------------------------------------------------------------|-------------|
-| **CORS Configuration**          | Restricts API access to trusted origins for enhanced security.  |  |
+| **CORS Configuration**          | Restricts API access to trusted origins for enhanced security.  | Complete |
 | **API Key Authentication**      | Secures endpoints by requiring valid API keys.                  | Compele |
 | **JWT Authentication**          | Implements session management using JSON Web Tokens.            |  |
 | **Rate Limiting**               | Protects APIs from abuse by limiting request rates.             |  |
@@ -26,7 +26,7 @@ This project demonstrates essential API security concepts using **Express** and 
 
 2.  **Clone the repository:**
     ```bash
-    git clone <your-repo-url>
+    git clone <https://github.com/Neit272/API-Security-with-API-Gateway-Management.git>
     cd API-Security-with-API-Gateway-Management
     ```
 
