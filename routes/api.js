@@ -1,22 +1,24 @@
-import express from 'express';
+import express from "express";
+import publicRoutes from "./public.js";
 const router = express.Router();
 
-// Public API
-router.get('/public', (_, res) => {
-  res.json({ message: 'This is a public API response.' });
-});
+router.use("/public", publicRoutes);
 
-// API endpoint now secured by Kong (API Key)
-router.get('/secure', (req, res) => {
-  // If the request reaches here, Kong has successfully authenticated it.
-  // Kong forwards information about the authenticated consumer in headers.
-  const consumerUsername = req.headers['x-consumer-username']; // Kong adds this    
-  const consumerId = req.headers['x-consumer-id']; // Kong adds this
+router.get("/secure", (req, res) => {
+  const consumerUsername = req.headers["x-consumer-username"];
+  const consumerId = req.headers["x-consumer-id"];
 
   res.json({
-    message: 'Secure data access granted via Kong.',
-    consumerUsername: consumerUsername || 'N/A',
-    consumerId: consumerId || 'N/A'
+    message: "Secure data access granted via Kong.",
+    consumerUsername: consumerUsername || "N/A",
+    consumerId: consumerId || "N/A",
+  });
+});
+
+router.get("/generate-api-key", async (req, res) => {
+  res.json({
+    message: "API key generation endpoint is not implemented yet.",
+    status: "success",
   });
 });
 
