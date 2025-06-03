@@ -1,7 +1,7 @@
 import express from 'express';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
-import apiRoutes from './routes/api.js';
+import apiRoutes from './routes/index.js';
 
 dotenv.config(); // Configure dotenv to load .env variables
 
