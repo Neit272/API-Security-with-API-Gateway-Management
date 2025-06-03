@@ -15,7 +15,6 @@ export const signup = async (req, res) => {
         .json({ error: "Username and password are required." });
     }
 
-    // Check if user already exists
     const userExists = await new Promise((resolve, reject) => {
       db.get(
         "SELECT username FROM users WHERE username = ?",
