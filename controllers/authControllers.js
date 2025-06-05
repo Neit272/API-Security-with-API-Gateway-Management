@@ -1,8 +1,8 @@
-import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import db from "../SQLite3/db.js";
 import axios from "axios";
 import dotenv from "dotenv";
+import CryptoJS from "crypto-js";
 
 dotenv.config();
 
@@ -65,7 +65,9 @@ export const getApiKeyViaBasicAuth = async (req, res) => {
     const user = await authenticateUserWithBasicAuth(req);
     const username = user.username;
 
-    const newApiKey = crypto.randomBytes(32).toString("hex");
+    const newApiKey = CryptoJS.lib.WordArray.random(32).toString(
+      CryptoJS.enc.Hex
+    );
 
     // --- Store and Provision the API Key in Kong ---
 
@@ -85,35 +87,36 @@ export const getApiKeyViaBasicAuth = async (req, res) => {
       );
       consumerId = consumerRes.data.id;
     } catch (error) {
-      if (error.response && error.response.status === 404) {
-        // Consumer does not exist, create it
-        try {
-          const createConsumerRes = await axios.post(
-            `${KONG_ADMIN_URL}/consumers`,
-            { username: username },
-            { headers: { "Content-Type": "application/json" } }
-          );
-          consumerId = createConsumerRes.data.id;
-        } catch (createError) {
-          console.error(
-            "Kong: Failed to create consumer",
-            createError.response?.data || createError.message
-          );
-          throw { status: 500, message: "Failed to create Kong consumer." };
-        }
-      } else {
-        console.error(
-          "Kong: Error checking consumer",
-          error.response?.data || error.message
-        );
-        throw {
-          status: 500,
-          message:
-            "Error communicating with Kong Admin API while checking consumer.",
-        };
-      }
+      console.error(
+        "Kong: Error checking consumer",
+        error.response?.data || error.message
+      );
+      throw {
+        status: 500,
+        message:
+          "Error communicating with Kong Admin API while checking consumer.",
+      };
     }
 
+    try {
+      // Get all key-auth credentials for this consumer
+      const keyauthRes = await axios.get(
+        `${KONG_ADMIN_URL}/consumers/${consumerId}/key-auth`
+      );
+      const keyauthList = keyauthRes.data.data || [];
+      // Delete all existing key-auth credentials (if any)
+      for (const cred of keyauthList) {
+        await axios.delete(
+          `${KONG_ADMIN_URL}/consumers/${consumerId}/key-auth/${cred.id}`
+        );
+      }
+    } catch (keyAuthError) {
+      console.error(
+        "Kong: Failed to delete API key",
+        keyAuthError.response?.data || keyAuthError.message
+      );
+      throw { status: 500, message: "Failed to delete API key in Kong." };
+    }
     // Add the API key to this consumer's key-auth credentials
     try {
       await axios.post(
@@ -128,6 +131,7 @@ export const getApiKeyViaBasicAuth = async (req, res) => {
       );
       throw { status: 500, message: "Failed to provision API key in Kong." };
     }
+
     // --- End Kong Provisioning ---
 
     res.status(200).json({

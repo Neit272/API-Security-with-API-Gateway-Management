@@ -15,7 +15,6 @@ app.use(helmet());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Use API routes
 app.use('/api', apiRoutes);
 
 // Default route

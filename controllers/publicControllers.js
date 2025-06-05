@@ -1,9 +1,17 @@
 import db from "../SQLite3/db.js";
 import bcrypt from "bcryptjs";
 import dotenv from "dotenv";
+import axios from "axios";
+import jwt from "jsonwebtoken";
+import CryptoJS from "crypto-js";
 
 dotenv.config();
 const saltRounds = parseInt(process.env.SALT_ROUNDS);
+const KONG_ADMIN_URL = process.env.kong_admin_url;
+const JWT_ACCESS_TOKEN_EXPIRES_IN =
+  process.env.JWT_ACCESS_TOKEN_EXPIRES_IN || "15m";
+const JWT_REFRESH_TOKEN_EXPIRES_IN_MINUTES =
+  parseInt(process.env.JWT_REFRESH_TOKEN_EXPIRES_IN_MINUTES) || 30;
 
 export const signup = async (req, res) => {
   try {
@@ -38,10 +46,96 @@ export const signup = async (req, res) => {
 
     const password_hash = await bcrypt.hash(password, saltRounds);
 
-    const sql = `INSERT INTO users (username, password_hash) VALUES (?, ?)`;
+    const KONG_ADMIN_URL = process.env.kong_admin_url;
+    if (!KONG_ADMIN_URL) {
+      throw {
+        status: 500,
+        message: "kong_admin_url is not configured in .env",
+      };
+    }
+
+    let consumerId;
+    let kongJwtKey;
+    let kongJwtSecret;
+    let kongJwtAlgorithm;
+
+    try {
+      const consumerRes = await axios.get(
+        `${KONG_ADMIN_URL}/consumers/${encodeURIComponent(username)}`
+      );
+      consumerId = consumerRes.data.id;
+      // Consumer exists in Kong but not in DB, so fetch or create JWT credentials
+      try {
+        const jwtCredentialsResponse = await axios.post(
+          `${KONG_ADMIN_URL}/consumers/${consumerId}/jwt`,
+          { algorithm: "HS256" },
+          { headers: { "Content-Type": "application/json" } }
+        );
+        kongJwtKey = jwtCredentialsResponse.data.key;
+        kongJwtSecret = jwtCredentialsResponse.data.secret;
+        kongJwtAlgorithm = jwtCredentialsResponse.data.algorithm;
+        console.log(
+          `Received JWT credentials from POST. Key: ${kongJwtKey}, Algorithm: ${kongJwtAlgorithm}`
+        );
+      } catch (jwtError) {
+        console.error(
+          "Kong: Failed to create JWT credentials for existing consumer",
+          jwtError.response?.data || jwtError.message
+        );
+        throw {
+          status: 500,
+          message:
+            "Failed to create JWT credentials for existing Kong consumer.",
+        };
+      }
+      // Continue to create user in local DB
+    } catch (error) {
+      if (error.response && error.response.status === 404) {
+        // Consumer does not exist, create it
+        try {
+          const createConsumerRes = await axios.post(
+            `${KONG_ADMIN_URL}/consumers`,
+            { username: username },
+            { headers: { "Content-Type": "application/json" } }
+          );
+          consumerId = createConsumerRes.data.id;
+
+          const jwtCredentialsResponse = await axios.post(
+            `${KONG_ADMIN_URL}/consumers/${consumerId}/jwt`,
+            { algorithm: "HS256" },
+            { headers: { "Content-Type": "application/json" } }
+          );
+
+          kongJwtKey = jwtCredentialsResponse.data.key;
+          kongJwtSecret = jwtCredentialsResponse.data.secret;
+          kongJwtAlgorithm = jwtCredentialsResponse.data.algorithm;
+          console.log(
+            `Received JWT credentials from POST. Key: ${kongJwtKey}, Algorithm: ${kongJwtAlgorithm}`
+          );
+        } catch (createError) {
+          console.error(
+            "Kong: Failed to create consumer",
+            createError.response?.data || createError.message
+          );
+          throw { status: 500, message: "Failed to create Kong consumer." };
+        }
+      } else {
+        console.error(
+          "Kong: Error checking consumer",
+          error.response?.data || error.message
+        );
+        throw {
+          status: 500,
+          message:
+            "Error communicating with Kong Admin API while checking consumer.",
+        };
+      }
+    }
+
+    const sql = `INSERT INTO users (username, password_hash, secret) VALUES (?, ?, ?)`;
 
     await new Promise((resolve, reject) => {
-      db.run(sql, [username, password_hash], function (err) {
+      db.run(sql, [username, password_hash, kongJwtSecret], function (err) {
         if (err) {
           console.error("Database error during signup:", err);
           return reject({
@@ -101,7 +195,246 @@ export const signin = async (req, res) => {
       return res.status(401).json({ error: "Invalid password." });
     }
 
-    res.status(200).json({ message: "User signed in successfully!", username });
+    if (!KONG_ADMIN_URL) {
+      console.error("KONG_ADMIN_URL is not configured in .env");
+      return res
+        .status(500)
+        .json({ error: "API Gateway integration is not configured." });
+    }
+
+    let consumerId;
+    let kongJwtKey;
+    let kongJwtSecret = user.secret;
+    let kongJwtAlgorithm;
+
+    try {
+      // Ensure Kong Consumer exists
+      try {
+        const consumerRes = await axios.get(
+          `${KONG_ADMIN_URL}/consumers/${encodeURIComponent(username)}`
+        );
+        consumerId = consumerRes.data.id;
+      } catch (error) {
+        console.error(
+          "Kong: Error checking consumer",
+          error.response?.data || error.message
+        );
+        throw {
+          status: 500,
+          message:
+            "Error communicating with Kong Admin API while checking consumer.",
+        };
+      }
+
+      // Attempt to GET existing JWT credentials for the consumer.
+      let foundUsableExistingCredential = false;
+      try {
+        console.log(
+          `Attempting to GET existing JWT credentials for consumer ID: ${consumerId}`
+        );
+        const listCredentialsResponse = await axios.get(
+          `${KONG_ADMIN_URL}/consumers/${consumerId}/jwt`
+        );
+
+        if (
+          listCredentialsResponse.data &&
+          listCredentialsResponse.data.data &&
+          listCredentialsResponse.data.data.length > 0
+        ) {
+          // Prefer HS256 and ensure secret is available
+          const preferredCredential = listCredentialsResponse.data.data.find(
+            (cred) => cred.algorithm === "HS256" && cred.key
+          );
+
+          if (preferredCredential) {
+            console.log(
+              `Found usable existing Kong JWT credential (HS256 with secret): ${preferredCredential.id}`
+            );
+            kongJwtKey = preferredCredential.key;
+            kongJwtAlgorithm = preferredCredential.algorithm;
+            foundUsableExistingCredential = true;
+          } else {
+            console.log(
+              "No existing HS256 JWT credential with secret found via GET, or secret not returned."
+            );
+          }
+        } else {
+          console.log(
+            `No existing JWT credentials found via GET for consumer ID: ${consumerId}`
+          );
+        }
+      } catch (getErr) {
+        console.warn(
+          `Error trying to GET JWT credentials for consumer ID ${consumerId}: ${getErr.message}. Will proceed to create/ensure.`
+        );
+      }
+
+      // If no usable existing credential was found, then POST to create/ensure one. POST response should include the secret.
+      if (!foundUsableExistingCredential) {
+        console.log(
+          `No usable existing JWT credential found or GET did not provide necessary details. Posting to create/ensure JWT credentials for consumer ID: ${consumerId}`
+        );
+        const jwtCredentialsResponse = await axios.post(
+          `${KONG_ADMIN_URL}/consumers/${consumerId}/jwt`,
+          { algorithm: "HS256" },
+          { headers: { "Content-Type": "application/json" } }
+        );
+
+        kongJwtKey = jwtCredentialsResponse.data.key;
+        kongJwtSecret = jwtCredentialsResponse.data.secret;
+        kongJwtAlgorithm = jwtCredentialsResponse.data.algorithm;
+        console.log(
+          `Received JWT credentials from POST. Key: ${kongJwtKey}, Algorithm: ${kongJwtAlgorithm}, Secret: ${kongJwtSecret}`
+        );
+
+        const sql = `UPDATE users SET secret = ? WHERE username = ?`;
+
+        try {
+          await new Promise((resolve, reject) => {
+            db.run(sql, [kongJwtSecret, username], function (err) {
+              if (err) {
+                return reject(err);
+              }
+              resolve(this.changes);
+            });
+          });
+        } catch (err) {
+            // If updating the DB fails, rollback the credential on Kong
+          console.error("Database error updating user secret:", err);
+          try {
+            await axios.delete(
+              `${KONG_ADMIN_URL}/consumers/${consumerId}/jwt/${credentialId}`
+            );
+            console.log(
+              `Rolled back (deleted) JWT credential ${credentialId} for consumer ${consumerId} on Kong due to DB failure.`
+            );
+          } catch (deleteErr) {
+            console.error(
+              `Failed to rollback JWT credential ${credentialId} on Kong:`,
+              deleteErr.response?.data || deleteErr.message
+            );
+          }
+          throw {
+            status: 500,
+            message: "Failed to update user secret in database.",
+          };
+        }
+      }
+
+      if (!kongJwtKey || !kongJwtSecret || !kongJwtAlgorithm) {
+        console.error(
+          "Failed to retrieve complete JWT credentials from Kong:",
+          {
+            kongJwtKey,
+            kongJwtSecret,
+            kongJwtAlgorithm,
+          }
+        );
+        throw {
+          status: 500,
+          message: "Incomplete JWT credentials received from API Gateway.",
+        };
+      }
+    } catch (kongError) {
+      // This catches errors from consumer check or JWT credential operations
+      const errorMessage =
+        kongError.message ||
+        "Failed to process authentication credentials with API Gateway.";
+      const errorStatus = kongError.status || 500;
+      console.error(
+        `Kong interaction error during signin: Status ${errorStatus}, Message: ${errorMessage}`,
+        kongError.response?.data || kongError
+      );
+      return res.status(errorStatus).json({
+        error: errorMessage,
+      });
+    }
+
+    // Generate Access Token
+    const accessTokenPayload = {
+      iss: kongJwtKey,
+      sub: user.id,
+      username: user.username,
+    };
+    const accessToken = jwt.sign(accessTokenPayload, kongJwtSecret, {
+      algorithm: kongJwtAlgorithm,
+      expiresIn: JWT_ACCESS_TOKEN_EXPIRES_IN,
+    });
+
+    // Generate Refresh Token
+    const refreshToken = CryptoJS.lib.WordArray.random(40).toString(
+      CryptoJS.enc.Hex
+    );
+    const refreshTokenHash = CryptoJS.SHA256(refreshToken).toString(
+      CryptoJS.enc.Hex
+    );
+    const refreshTokenCreatedAt = new Date();
+    const refreshTokenExpiresAt = new Date(refreshTokenCreatedAt);
+    refreshTokenExpiresAt.setMinutes(
+      refreshTokenExpiresAt.getMinutes() + JWT_REFRESH_TOKEN_EXPIRES_IN_MINUTES
+    );
+
+    // Store hashed Refresh Token in the database
+    try {
+      // Delete old refresh tokens for this user if any
+      await new Promise((resolve, reject) => {
+        db.run(
+          "DELETE FROM refresh_tokens WHERE user_id = ?",
+          [user.id],
+          (err) => {
+            if (err) {
+              // Continue even if there is an error deleting old tokens
+              console.warn(
+                "Could not delete old refresh tokens for user:",
+                user.id,
+                err
+              );
+            }
+            resolve();
+          }
+        );
+      });
+
+      await new Promise((resolve, reject) => {
+        db.run(
+          "INSERT INTO refresh_tokens (user_id, token_hash, kong_jwt_key, expires_at, created_at) VALUES (?, ?, ?, ?, ?)",
+          [
+            user.id,
+            refreshTokenHash,
+            kongJwtKey,
+            refreshTokenExpiresAt.toISOString(),
+            refreshTokenCreatedAt.toISOString(),
+          ],
+          function (err) {
+            if (err) {
+              console.error("Database error storing refresh token:", err);
+              return reject({
+                status: 500,
+                message: "Failed to store refresh token.",
+              });
+            }
+            resolve(this.lastID);
+          }
+        );
+      });
+    } catch (dbError) {
+      console.error("Critical error storing refresh token:", dbError);
+      return res.status(500).json({
+        error:
+          dbError.message || "Could not complete signin due to internal error.",
+      });
+    }
+
+    // Return tokens to client
+    res.status(200).json({
+      message: "User signed in successfully!",
+      username: user.username,
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      token_type: "Bearer",
+      expires_in: `${jwt.decode(accessToken).exp - Math.floor(Date.now() / 1000)} seconds`, // Countdown in seconds
+    });
+
     console.log(`User ${username} signed in successfully.`);
   } catch (error) {
     if (error.status) {
