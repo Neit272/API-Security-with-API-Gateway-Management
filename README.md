@@ -30,7 +30,7 @@ This project demonstrates essential API security concepts using **Express** and 
 
 2.  **Clone the repository:**
     ```bash
-    git clone <https://github.com/Neit272/API-Security-with-API-Gateway-Management.git>
+    git clone https://github.com/Neit272/API-Security-with-API-Gateway-Management.git
     cd API-Security-with-API-Gateway-Management
     ```
 
