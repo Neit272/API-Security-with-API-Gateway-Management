@@ -11,7 +11,7 @@ This project demonstrates essential API security concepts using **Express** and 
 | **CORS Configuration**          | Restricts API access to trusted origins for enhanced security.  | Complete |
 | **API Key Authentication**      | Secures endpoints by requiring valid API keys.                  | Complete |
 | **JWT Authentication**          | Implements session management using JSON Web Tokens.            |  |
-| **Rate Limiting**               | Protects APIs from abuse by limiting request rates.             |  |
+| **Rate Limiting**               | Protects APIs from abuse by limiting request rates.             | Complete |
 | **Input Validation & Sanitization** | Ensures incoming data is safe and well-formed.             |  |
 | **API Activity Logging**        | Monitors and analyzes API usage for better observability.       |  |
 
@@ -41,7 +41,23 @@ This project demonstrates essential API security concepts using **Express** and 
     cp .env.example .env
     ```
 
-5.  **Start the Node.js API server:**
+5.  **Configure Kong Plugins**
+
+    Sync `kong.yaml` configuration file into Kong by running:
+
+    ```sh
+    deck gateway sync --kong-addr http://localhost:8001 --file kong.yaml
+    ```
+
+    Dump the current Kong configuration to a YAML file:
+
+    ```sh
+    deck gateway dump --kong-addr http://localhost:8001 --output-file kong.yaml
+    ```
+
+    ***Note:** If you haven't installed Deck yet: [https://github.com/kong/deck/releases](https://github.com/kong/deck/releases)*
+
+6.  **Start the Node.js API server:**
     ```bash
     npm start
     ```
