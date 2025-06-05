@@ -4,6 +4,10 @@ This project demonstrates essential API security concepts using **Express** and 
 
 ---
 
+## Architecture
+
+![Architecture Diagram](asset/Architecture.png)
+
 ## Features Implemented
 
 | Feature                        | Description                                                    | Status      |
