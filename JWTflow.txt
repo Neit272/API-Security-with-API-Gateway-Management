@@ -1,58 +1,55 @@
-sequenceDiagram
-    actor User/Postman
-    participant KongGW as Kong Gateway (8000)
-    participant AppServer as Your API Server (4000)
-    participant KongAdmin as Kong Admin API (8001)
+participant User
+participant KongGW
+participant API
+participant KongAdmin
+    User->>KongGW: POST /api/public/signup (username, password)
+    KongGW->>API: Credentials
+    API->>KongAdmin: GET /consumers/{username}
+    alt Consumer chưa tồn tại
+        KongAdmin-->>API: 404 Not Found
+        API->>KongAdmin: POST /consumers (username)
+        KongAdmin-->>API: 201 Created (consumer_id)
+    else Consumer đã tồn tại
+        KongAdmin-->>API: 200 OK (consumer_id)
+    end
+    API->>KongAdmin: POST /consumers/{consumer_id}/jwt (algorithm=HS256)
+    KongAdmin-->>API: 201 Created (jwt_credential_id, key, secret, algorithm)
+    API->>API: Lưu user vào DB (username, password_hash, secret)
+    API-->>KongGW: 201 Created (Signup thành công)
+    KongGW-->>User: 201 Created (Signup thành công)
 
-    %% --- Phase 1: User Sign-in & JWT Credential Setup ---
-    User/Postman->>AppServer: POST /api/public/signin (username, password)
-    activate AppServer
-    AppServer->>AppServer: Validate credentials (vs DB)
-    alt Credentials Valid
-        AppServer->>KongAdmin: GET /consumers/{username} (Check if consumer exists)
-        activate KongAdmin
-        alt Consumer Not Found
-            KongAdmin-->>AppServer: 404 Not Found
-            AppServer->>KongAdmin: POST /consumers (username: {username})
-            KongAdmin-->>AppServer: 201 Created (consumer_id, username)
-        else Consumer Found
-            KongAdmin-->>AppServer: 200 OK (consumer_id, username)
+    User->>KongGW: POST /api/public/signin (username, password)
+    KongGW->>API: Credentials
+    API->>API: Kiểm tra username, password
+    alt Đúng mật khẩu
+        API->>KongAdmin: GET /consumers/{username}
+        KongAdmin-->>API: 200 OK (consumer_id)
+        API->>KongAdmin: GET /consumers/{consumer_id}/jwt
+        alt Đã có JWT credential
+            KongAdmin-->>API: 200 OK (danh sách credential)
+            API->>API: Lấy secret từ DB tương ứng
+        else Chưa có JWT credential
+            KongAdmin-->>API: 200 OK (empty list)
+            API->>KongAdmin: POST /consumers/{consumer_id}/jwt (algorithm=HS256)
+            KongAdmin-->>API: 201 Created (key, secret)
+            API->>API: Lưu/Update secret vào DB
         end
-        deactivate KongAdmin
-
-        AppServer->>KongAdmin: POST /consumers/{consumer_id_or_username}/jwt (Create JWT credentials)
-        activate KongAdmin
-        KongAdmin-->>AppServer: 201 Created (jwt_credential_id, key, secret, algorithm)
-        deactivate KongAdmin
-        note right of AppServer: Server stores `key` (issuer) if needed for future reference, but NOT the `secret`.
-        AppServer-->>User/Postman: 200 OK (message, jwt_issuer_key: key)
-    else Credentials Invalid
-        AppServer-->>User/Postman: 401 Unauthorized
+        API->>API: Ký JWT access token với secret
+        API-->>KongGW: 200 OK (access_token, refresh_token, ...)
+        KongGW-->>User: 200 OK (access_token, refresh_token, ...)
+    else Sai mật khẩu
+        API-->>KongGW: 401 Unauthorized
+        KongGW-->>User: 401 Unauthorized
     end
-    deactivate AppServer
 
-    %% --- Phase 2: Client Requests Access Token from Kong ---
-    User/Postman->>KongGW: POST /path/to/your/service/auth-jwt (Request for JWT, body: {key: "jwt_issuer_key_from_step1"})
-    note over User/Postman, KongGW: Endpoint này là của Kong, không phải của AppServer. <br/>Path có thể là `/consumers/{consumer_username}/jwt` <br/>hoặc một path của service đã được cấu hình JWT plugin <br/>để cấp token.
-    activate KongGW
-    KongGW->>KongGW: Verify `key` and find associated `secret`.
-    KongGW->>KongGW: Generate & Sign Access Token (using its stored secret).
-    KongGW-->>User/Postman: 200 OK (access_token: "generated_jwt_access_token")
-    deactivate KongGW
-    note left of User/Postman: User/Postman stores the access_token.
-
-    %% --- Phase 3: User Accesses Protected Resource ---
-    User/Postman->>KongGW: GET /api/jwt/info (Header: Authorization: Bearer generated_jwt_access_token)
-    activate KongGW
-    KongGW->>KongGW: JWT Plugin: Validate Access Token (signature, expiration, claims using its stored secret for the issuer)
-    alt Token Valid
-        KongGW->>AppServer: GET /api/jwt/info (Kong adds X-Consumer-Username, X-Consumer-ID headers)
-        activate AppServer
-        AppServer->>AppServer: Process request (can use X-Consumer-Username)
-        AppServer-->>KongGW: 200 OK (protected data)
-        deactivate AppServer
-        KongGW-->>User/Postman: 200 OK (protected data)
-    else Token Invalid
-        KongGW-->>User/Postman: 401 Unauthorized / 403 Forbidden
+    User->>KongGW: GET /api/jwt/info (Authorization: Bearer access_token)
+    KongGW->>KongGW: Validate access_token (signature, exp, claims)
+    alt Token hợp lệ
+        KongGW->>API: Forward request (thêm X-Consumer-Username, X-Consumer-ID)
+        API-->>KongGW: 200 OK (protected data)
+        KongGW-->>User: 200 OK (protected data)
+    else Token không hợp lệ/hết hạn
+        KongGW-->>User: 401 Unauthorized
     end
-    deactivate KongGW
+    User->>KongGW: POST /api/public/refresh (refresh_token)
+    KongGW->>API: refresh_token

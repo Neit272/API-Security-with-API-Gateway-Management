@@ -22,6 +22,8 @@ app.get('/', (req, res) => {
   res.send('API Server is running!');
 });
 
-app.listen(PORT, () => {
+app.use('/dashboard', express.static('dashboard'));
+
+app.listen(PORT, '127.0.0.1', () => {
   console.log(`Server running at http://localhost:${PORT}`);
 });

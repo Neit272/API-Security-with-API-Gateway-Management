@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>API JWT Demo Dashboard</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap/dist/css/bootstrap.min.css">
+  <style>
+    body { padding-top: 20px; }
+    .form-container { margin-bottom: 30px; padding: 20px; border: 1px solid #ddd; border-radius: 5px; background-color: #f9f9f9; }
+    h1, h2 { text-align: center; margin-bottom: 20px; }
+    pre { background-color: #e9ecef; padding: 15px; border: 1px solid #ced4da; border-radius: 5px; white-space: pre-wrap; word-break: break-all; }
+    .token-display { margin-top: 10px; font-size: 0.85em; word-break: break-all; padding: 5px; background-color: #fff; border: 1px solid #eee; border-radius: 3px;}
+    .btn-group-actions button { margin-right: 5px; }
+  </style>
+</head>
+<body class="container">
+  <header>
+    <h1>API JWT Security Demo</h1>
+  </header>
+
+  <div class="row">
+    <div class="col-md-6">
+      <!-- Signup Form -->
+      <div id="signupContainer" class="form-container">
+        <h2>Sign Up</h2>
+        <form id="signupForm">
+          <div class="mb-3">
+            <label for="signupUsername" class="form-label">Username</label>
+            <input type="text" class="form-control" id="signupUsername" name="username" placeholder="Enter username" required>
+          </div>
+          <div class="mb-3">
+            <label for="signupPassword" class="form-label">Password</label>
+            <input type="password" class="form-control" id="signupPassword" name="password" placeholder="Enter password" required>
+          </div>
+          <button class="btn btn-info w-100" type="submit">Sign Up</button>
+        </form>
+      </div>
+
+      <!-- Signin Form -->
+      <div id="signinContainer" class="form-container">
+        <h2>Sign In</h2>
+        <form id="loginForm">
+          <div class="mb-3">
+            <label for="loginUsername" class="form-label">Username</label>
+            <input type="text" class="form-control" id="loginUsername" name="username" placeholder="Enter username" required>
+          </div>
+          <div class="mb-3">
+            <label for="loginPassword" class="form-label">Password</label>
+            <input type="password" class="form-control" id="loginPassword" name="password" placeholder="Enter password" required>
+          </div>
+          <button class="btn btn-primary w-100" type="submit">Sign In</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="col-md-6">
+      <!-- Actions for Logged-in User -->
+      <div id="loggedInActions" style="display:none;" class="form-container">
+        <h2>User Actions</h2>
+        <div class="btn-group-actions mb-3">
+            <button id="getInfoBtn" class="btn btn-success">Get JWT Protected Info</button>
+            <button id="refreshTokenBtn" class="btn btn-warning">Refresh Access Token</button>
+            <button id="logoutBtn" class="btn btn-danger">Logout</button>
+        </div>
+        <div class="token-display">
+          <strong>Access Token:</strong><br><span id="accessTokenDisplay">-</span>
+        </div>
+        <div class="token-display">
+          <strong>Refresh Token:</strong><br><span id="refreshTokenDisplay">-</span>
+        </div>
+      </div>
+
+      <div class="form-container">
+        <h2>Result / Server Response</h2>
+        <pre id="resultDisplay">Awaiting action...</pre>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentAccessToken = '';
+    let currentRefreshToken = '';
+
+    const signupFormEl = document.getElementById('signupForm');
+    const loginFormEl = document.getElementById('loginForm');
+    const getInfoBtnEl = document.getElementById('getInfoBtn');
+    const refreshTokenBtnEl = document.getElementById('refreshTokenBtn');
+    const logoutBtnEl = document.getElementById('logoutBtn');
+    const resultDisplayEl = document.getElementById('resultDisplay');
+    
+    const loggedInActionsDivEl = document.getElementById('loggedInActions');
+    const signupContainerEl = document.getElementById('signupContainer');
+    const signinContainerEl = document.getElementById('signinContainer');
+
+    const accessTokenDisplayEl = document.getElementById('accessTokenDisplay');
+    const refreshTokenDisplayEl = document.getElementById('refreshTokenDisplay');
+
+    function displayResult(data, success = true) {
+      resultDisplayEl.textContent = JSON.stringify(data, null, 2);
+      resultDisplayEl.style.borderColor = success ? '#28a745' : '#dc3545'; // Green for success, Red for error
+    }
+
+    function updateTokenDisplays() {
+      accessTokenDisplayEl.textContent = currentAccessToken ? currentAccessToken : '-';
+      refreshTokenDisplayEl.textContent = currentRefreshToken ? currentRefreshToken : '-';
+    }
+
+    function showLoggedInUI() {
+      loggedInActionsDivEl.style.display = 'block';
+      signinContainerEl.style.display = 'none';
+      signupContainerEl.style.display = 'none';
+      updateTokenDisplays();
+    }
+
+    function showLoggedOutUI() {
+      loggedInActionsDivEl.style.display = 'none';
+      signinContainerEl.style.display = 'block';
+      loginFormEl.reset();
+      signupContainerEl.style.display = 'block';
+      signupFormEl.reset();
+      currentAccessToken = '';
+      currentRefreshToken = '';
+      updateTokenDisplays();
+      resultDisplayEl.textContent = 'Awaiting action...';
+      resultDisplayEl.style.borderColor = '#ced4da';
+    }
+
+    signupFormEl.onsubmit = async function(e) {
+      e.preventDefault();
+      const formData = new FormData(signupFormEl);
+      const data = Object.fromEntries(formData.entries());
+
+      try {
+        const res = await fetch('http://localhost:8000/api/public/signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        const responseData = await res.json();
+        displayResult(responseData, res.ok);
+        if (res.ok) {
+          signupFormEl.reset();
+           alert('Signup successful! Please sign in.');
+        }
+      } catch (error) {
+        displayResult({ error: 'Network error or server unavailable during signup.', details: error.message }, false);
+      }
+    };
+
+    loginFormEl.onsubmit = async function(e) {
+      e.preventDefault();
+      const formData = new FormData(loginFormEl);
+      const data = Object.fromEntries(formData.entries());
+
+      try {
+        const res = await fetch('http://localhost:8000/api/public/signin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        const responseData = await res.json();
+        displayResult(responseData, res.ok);
+        if (res.ok && responseData.access_token) {
+          currentAccessToken = responseData.access_token;
+          currentRefreshToken = responseData.refresh_token;
+          showLoggedInUI();
+        } else {
+          showLoggedOutUI();
+        }
+      } catch (error) {
+        displayResult({ error: 'Network error or server unavailable during signin.', details: error.message }, false);
+        showLoggedOutUI();
+      }
+    };
+
+    getInfoBtnEl.onclick = async function() {
+      if (!currentAccessToken) {
+        displayResult({ error: 'No access token available. Please sign in.' }, false);
+        return;
+      }
+      try {
+        const res = await fetch('http://localhost:8000/api/jwt/info', {
+          headers: { 'Authorization': 'Bearer ' + currentAccessToken }
+        });
+        const responseData = await res.json();
+        displayResult(responseData, res.ok);
+        if (!res.ok && res.status === 401) {
+            alert("Access token might be invalid or expired. Try refreshing the token or signing in again.");
+        }
+      } catch (error) {
+        displayResult({ error: 'Network error or server unavailable when getting info.', details: error.message }, false);
+      }
+    };
+
+    refreshTokenBtnEl.onclick = async function() {
+      if (!currentRefreshToken) {
+        displayResult({ error: 'No refresh token available. Please sign in.' }, false);
+        return;
+      }
+      try {
+        const res = await fetch('http://localhost:8000/api/public/refresh', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: currentRefreshToken })
+        });
+        const responseData = await res.json();
+        displayResult(responseData, res.ok);
+        if (res.ok && responseData.access_token) {
+          currentAccessToken = responseData.access_token;
+          if (responseData.refresh_token) { // Server should return a new refresh token
+            currentRefreshToken = responseData.refresh_token;
+          }
+          updateTokenDisplays();
+          alert('Tokens refreshed successfully!');
+        } else {
+          alert('Failed to refresh token. You might need to sign in again.');
+          showLoggedOutUI(); 
+        }
+      } catch (error) {
+        displayResult({ error: 'Network error or server unavailable during token refresh.', details: error.message }, false);
+      }
+    };
+
+    logoutBtnEl.onclick = function() {
+      // For a real app, you would also call a server-side logout endpoint
+      // to invalidate the refresh token in the database if possible.
+      showLoggedOutUI();
+      displayResult({ message: 'Logged out successfully.' });
+    };
+
+    // Initial UI state
+    showLoggedOutUI();
+  </script>
+</body>
+</html>
