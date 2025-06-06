@@ -1,6 +1,6 @@
 ```mermaid
 flowchart TD
-    style A fill:#ffffcc,stroke:#ff6666,stroke-width:2px
+    style A fill:#9CE8C6,stroke:#218F5D,stroke-width:2px
     style B fill:#ccf2ff,stroke:#0066cc,stroke-width:2px
     style C fill:#ddffdd,stroke:#33cc33,stroke-width:2px
 
@@ -8,16 +8,19 @@ flowchart TD
 
     %% Kong Gateway Layer (Data Plane)
     B[Kong Gateway: Data Plane & Policy Enforcement]
-    Bsub1[CORS Plugin, JWT Plugin, Key Auth Plugin, Rate Limiting Plugin]
+    Bsub1[CORS, JWT, Key Auth, Rate Limiting Plugin]
     Bsub2[Routing: Proxy to Express API Server]
 
     %% Express API Server Layer
-    C[Express API Server: App Logic & API Routing]
-    C1[public.js: /signup, /signin, /refresh, /info]
-    C2[auth.js: /apikey, /info]
-    C3[apikey.js: /info]
-    C4[jwt.js: /info]
-    C5[Controllers: publicControllers.js, authControllers.js]
+    subgraph ServerLayer [Private Backend Server]
+        direction TB
+        C[Express API Service: App Logic & API Routing]
+        C1[public.js: /signup, /signin, /refresh, /info]
+        C2[auth.js: /apikey, /info]
+        C3[apikey.js: /info]
+        C4[jwt.js: /info]
+        C5[Controllers/]
+    end
 
     %% Data Store
     D[SQLite Database: users, refresh_tokens]
@@ -27,14 +30,14 @@ flowchart TD
     F[Kong Database: PostgreSQL]
 
     %% Connections: Client to Kong Gateway
-    A -->|HTTP Requests: /api/public/signup, /api/public/signin, /api/public/refresh, /api/public/info, /api/jwt/info, /api/auth/apikey, /api/auth/info, /api/apikey/info| B
+    A -->|HTTP Requests: /signup, /signin, /refresh, public/info, /jwt/info, /auth/apikey, /auth/info, /apikey/info| B
 
     %% Kong Gateway Plugins
     B --> Bsub1
     B --> Bsub2
 
     %% Routing to Express API Server
-    Bsub2 --> C
+    Bsub2 --> ServerLayer
 
     %% Express API Server Routes
     C --> C1
