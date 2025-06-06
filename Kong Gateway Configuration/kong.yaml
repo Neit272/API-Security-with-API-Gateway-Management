@@ -43,7 +43,6 @@ services:
       key_in_query: true
       key_names:
       - apikey
-      realm: null
       run_on_preflight: true
     enabled: true
     name: key-auth
