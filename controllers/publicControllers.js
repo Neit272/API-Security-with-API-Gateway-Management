@@ -1,4 +1,5 @@
 import db from "../SQLite3/db.js";
+import { saveLog } from '../SQLite3/logger.js'; // Import đúng đường
 import bcrypt from "bcryptjs";
 import dotenv from "dotenv";
 import axios from "axios";
@@ -398,6 +399,14 @@ export const signup = async (req, res) => {
         }
         resolve(this.lastID);
       });
+    });
+
+    saveLog({
+      client_ip: req.ip,
+      request_uri: req.originalUrl,
+      status: 201, // hoặc res.statusCode nếu đã gọi res.status()
+      response_time: 0.1, // nếu không đo được thì set tạm
+      service: 'auth-service'
     });
 
     res.status(201).json({ message: "User signed up successfully!", username });

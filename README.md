@@ -17,7 +17,7 @@ This project demonstrates essential API security concepts using **Express** and 
 | **JWT Authentication**              | Implements session management using JSON Web Tokens.           | Complete |
 | **Rate Limiting**                   | Protects APIs from abuse by limiting request rates.            | Complete |
 | **Input Validation & Sanitization** | Ensures incoming data is safe and well-formed.                 |          |
-| **API Activity Logging**            | Monitors and analyzes API usage for better observability.      |          |
+| **API Activity Logging**            | Monitors and analyzes API usage for better observability.      | Complete |
 
 ---
 
