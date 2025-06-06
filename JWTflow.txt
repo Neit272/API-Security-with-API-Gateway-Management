@@ -2,6 +2,8 @@ participant User
 participant KongGW
 participant API
 participant KongAdmin
+
+
     User->>KongGW: POST /api/public/signup (username, password)
     KongGW->>API: Credentials
     API->>KongAdmin: GET /consumers/{username}
@@ -53,3 +55,12 @@ participant KongAdmin
     end
     User->>KongGW: POST /api/public/refresh (refresh_token)
     KongGW->>API: refresh_token
+    API->>API: Kiểm tra refresh_token trong DB
+    alt Refresh token hợp lệ và chưa hết hạn
+        API->>API: Tìm user, lấy secret, ký mới access_token, tạo refresh_token mới với expired time cũ
+        API-->>KongGW: 200 OK (access_token mới, refresh_token mới)
+        KongGW-->>User: 200 OK (access_token mới, refresh_token mới)
+    else Refresh token không hợp lệ/hết hạn
+        API-->>KongGW: 401 Unauthorized
+        KongGW-->>User: 401 Unauthorized
+    end
