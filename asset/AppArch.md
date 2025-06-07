@@ -15,53 +15,40 @@ flowchart TD
     subgraph ServerLayer [Private Backend Server]
         direction TB
         C[Express API Service: App Logic & API Routing]
-        C1[public.js: /signup, /signin, /refresh, /info]
-        C2[auth.js: /apikey, /info]
-        C3[apikey.js: /info]
-        C4[jwt.js: /info]
-        C5[Controllers/]
+        D[SQLite Database: users, refresh_tokens, logs]
     end
 
     %% Data Store
-    D[SQLite Database: users, refresh_tokens]
+
 
     %% Kong Admin API & DB (Control Plane)
     E[Kong Admin API: Control Plane]
     F[Kong Database: PostgreSQL]
+    G[Splunk: Dashboard, Alert]
 
     %% Connections: Client to Kong Gateway
-    A -->|HTTP Requests: /signup, /signin, /refresh, public/info, /jwt/info, /auth/apikey, /auth/info, /apikey/info| B
+    A --> B
 
     %% Kong Gateway Plugins
     B --> Bsub1
-    B --> Bsub2
+    Bsub1 --> Bsub2
 
     %% Routing to Express API Server
     Bsub2 --> ServerLayer
 
-    %% Express API Server Routes
-    C --> C1
-    C --> C2
-    C --> C3
-    C --> C4
-
-    %% Controllers Handle Logic
-    C1 -->|User Signup, Signin, Refresh| C5
-    C2 -->|Get API Key via Basic Auth| C5
-    C3 -->|API Key Protected Info| C5
-    C4 -->|JWT Protected Info| C5
-
     %% Database Interactions
-    C5 -->|Read/Write users, tokens| D
+    C --> D
 
     %% Control Plane: API Server Configures Kong via Admin API
-    C5 -.->|Manage Consumers, JWT Credentials, API Keys| E
+    C -.-> E
 
     %% Kong Admin API Writes Config to Kong Database
-    E -.->|Config Write| F
+    E -.-> F
 
     %% Kong Gateway Reads Config from Kong Database
-    F -.->|Config Read| B
+    F -.-> B
+
+    D -.-> G
 ```
 **Chú thích:**
 - **Data Plane** (luồng dữ liệu runtime): Client → Kong Gateway (áp dụng policy, xác thực, routing) → Express API Server (thực thi nghiệp vụ, lưu dữ liệu) → SQLite → trả kết quả về cho Client.
