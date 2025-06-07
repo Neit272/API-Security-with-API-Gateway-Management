@@ -1,38 +1,18 @@
 _format_version: "3.0"
 consumers:
+- jwt_secrets:
+  - algorithm: HS256
+    key: A0GqSuooznSXBbFpbiQyrIqWxQmbRjeq
+    secret: MeLl8DajEkWMzwGZbx5nuM9SQ1UwIU5p
+  username: admin
 - keyauth_credentials:
   - key: "190724"
   username: my-client-app
 - jwt_secrets:
   - algorithm: HS256
-    key: JSqiTVQalVBu6Uyz3s8ypeR0KBTFfKws
-    secret: k4wMZ1floYXNq7RwvFKMQJ7Ap6SCMuhm
-  username: tesser
-- jwt_secrets:
-  - algorithm: HS256
-    key: nAmpayZ0SdSUMBL8RSLfzP0f0HsxP17D
-    secret: dBbCyKzkq6gLVwfVdqZEEzVDjvqyAEpC
-  username: test2ser
-- jwt_secrets:
-  - algorithm: HS256
-    key: jUPhcOcniKrzllwLHMg4TTS5R7DvDhjY
-    secret: tyrvCzRHu7eSyKkLKosuiDw5a3vncczk
-  username: test62ser
-- jwt_secrets:
-  - algorithm: HS256
-    key: IuiK3x8mVrz9Pi2eY27dXZpgEl1d9T0S
-    secret: W5JhTHVhRAFp9Rh2JZt4eGJOMSoAVtXX
-  username: testa2ser
-- jwt_secrets:
-  - algorithm: HS256
-    key: natHpNQcrwaLyGnyPudodn0KwOT88aWA
-    secret: 0GwmiVzK2Jj1SIIwf9iDG0EoETy2h453
-  username: testuser
-- jwt_secrets:
-  - algorithm: HS256
-    key: 7b8iXrZGsZlT5peSesQMC6FdMl0urCqp
-    secret: luQ1mb50QyL4vXfG3XYU2cHTcnA9agwS
-  username: tesxta2ser
+    key: c9r6cZ6vHrZFSuzBsltdbfQNOQGsWyP7
+    secret: 9hozoxK6Efp46mvjsYEwgzhrxBOy4VYw
+  username: user2
 plugins:
 - config:
     content_type: application/json
@@ -65,48 +45,29 @@ services:
 - connect_timeout: 60000
   enabled: true
   host: host.docker.internal
-  name: node-api
-  path: /
+  name: api-security
   plugins:
   - config:
-      content_type: application/json
-      custom_fields_by_lua: null
-      flush_timeout: null
+      credentials: true
+      exposed_headers: null
       headers: null
-      http_endpoint: http://host.docker.internal:4000/logs
-      keepalive: 10000
-      method: POST
-      queue:
-        concurrency_limit: 1
-        initial_retry_delay: 0.01
-        max_batch_size: 1
-        max_bytes: null
-        max_coalescing_delay: 1
-        max_entries: 10000
-        max_retry_delay: 60
-        max_retry_time: 60
-      queue_size: null
-      retry_count: null
-      timeout: 10000
+      max_age: 3600
+      methods:
+      - GET
+      - HEAD
+      - PUT
+      - PATCH
+      - POST
+      - DELETE
+      - OPTIONS
+      - TRACE
+      - CONNECT
+      origins:
+      - http://localhost:3000
+      preflight_continue: false
+      private_network: false
     enabled: true
-    name: http-log
-    protocols:
-    - grpc
-    - grpcs
-    - http
-    - https
-  - config:
-      anonymous: null
-      hide_credentials: false
-      key_in_body: false
-      key_in_header: true
-      key_in_query: true
-      key_names:
-      - apikey
-      realm: null
-      run_on_preflight: true
-    enabled: true
-    name: key-auth
+    name: cors
     protocols:
     - grpc
     - grpcs
@@ -123,7 +84,7 @@ services:
       limit_by: consumer
       minute: 5
       month: null
-      path: null
+      path: /api/
       policy: local
       redis:
         database: 0
@@ -160,9 +121,87 @@ services:
   retries: 5
   routes:
   - https_redirect_status_code: 426
-    id: 29f7b8c6-ebcf-4ed2-8a4b-51fb1a755134
+    name: api-auth-route
+    path_handling: v0
+    paths:
+    - /api/auth/
+    preserve_host: false
+    protocols:
+    - http
+    - https
+    regex_priority: 0
+    request_buffering: true
+    response_buffering: true
+    strip_path: false
+  - https_redirect_status_code: 426
+    name: api-jwt-route
+    path_handling: v0
+    paths:
+    - /api/jwt/
+    plugins:
+    - config:
+        anonymous: null
+        claims_to_verify: null
+        cookie_names: []
+        header_names:
+        - authorization
+        key_claim_name: iss
+        maximum_expiration: 0
+        realm: null
+        run_on_preflight: true
+        secret_is_base64: false
+        uri_param_names:
+        - jwt
+      enabled: true
+      name: jwt
+      protocols:
+      - grpc
+      - grpcs
+      - http
+      - https
+    preserve_host: false
+    protocols:
+    - http
+    - https
+    regex_priority: 0
+    request_buffering: true
+    response_buffering: true
+    strip_path: false
+  - https_redirect_status_code: 426
+    name: api-key-route
+    path_handling: v0
+    paths:
+    - /api/key/
+    plugins:
+    - config:
+        anonymous: null
+        hide_credentials: true
+        key_in_body: false
+        key_in_header: true
+        key_in_query: false
+        key_names:
+        - apikey
+        realm: null
+        run_on_preflight: true
+      enabled: true
+      name: key-auth
+      protocols:
+      - grpc
+      - grpcs
+      - http
+      - https
+    preserve_host: false
+    protocols:
+    - http
+    - https
+    regex_priority: 0
+    request_buffering: true
+    response_buffering: true
+    strip_path: false
+  - https_redirect_status_code: 426
     methods:
     - POST
+    name: api-logs-route
     path_handling: v0
     paths:
     - /logs
@@ -175,40 +214,10 @@ services:
     response_buffering: true
     strip_path: true
   - https_redirect_status_code: 426
-    id: 516a5f5e-43b1-46fb-bbcb-07c929047eb4
-    methods:
-    - POST
+    name: api-public-route
     path_handling: v0
     paths:
-    - /logs
-    preserve_host: false
-    protocols:
-    - http
-    - https
-    regex_priority: 0
-    request_buffering: true
-    response_buffering: true
-    strip_path: true
-  - https_redirect_status_code: 426
-    id: d9695745-e8dd-484f-8332-936ed91ee128
-    methods:
-    - POST
-    path_handling: v0
-    paths:
-    - /logs
-    preserve_host: false
-    protocols:
-    - http
-    - https
-    regex_priority: 0
-    request_buffering: true
-    response_buffering: true
-    strip_path: true
-  - https_redirect_status_code: 426
-    name: node-api-route
-    path_handling: v0
-    paths:
-    - /api
+    - /api/public/
     preserve_host: false
     protocols:
     - http

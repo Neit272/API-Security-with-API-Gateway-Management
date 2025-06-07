@@ -18,8 +18,8 @@ router.get("/info", (req, res) => {
 // Validation rules cho signin
 const signinValidationRules = [
   body("username")
-    .trim()             // Bỏ khoảng trắng đầu cuối
-    .escape()           // Convert ký tự đặc biệt thành dạng an toàn (ví dụ < thành &lt;)
+    .trim()
+    .escape()
     .notEmpty()
     .withMessage("Username không được để trống")
     .isAlphanumeric()
@@ -29,12 +29,9 @@ const signinValidationRules = [
     .trim()
     .notEmpty()
     .withMessage("Password không được để trống")
-    .escape(),          // Mặc dù password thường không escape, bạn cân nhắc vì password không nên bị thay đổi quá nhiều
+    .escape(),
 ];
 
-
-
-// Middleware kiểm tra validation result
 const validate = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {

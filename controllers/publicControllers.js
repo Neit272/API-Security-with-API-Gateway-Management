@@ -1,5 +1,5 @@
 import db from "../SQLite3/db.js";
-import { saveLog } from '../SQLite3/logger.js'; // Import đúng đường
+import { saveLog } from '../SQLite3/db.js';
 import bcrypt from "bcryptjs";
 import dotenv from "dotenv";
 import axios from "axios";
@@ -111,7 +111,7 @@ async function generateJWTToken(user, refresh_token = null) {
 
       try {
         await new Promise((resolve, reject) => {
-          db.run(sql, [kongJwtSecret, username], function (err) {
+          db.run(sql, [kongJwtSecret, user.username], function (err) {
             if (err) {
               return reject(err);
             }
@@ -342,7 +342,6 @@ export const signup = async (req, res) => {
             "Failed to create JWT credentials for existing Kong consumer.",
         };
       }
-      // Continue to create user in local DB
     } catch (error) {
       if (error.response && error.response.status === 404) {
         // Consumer does not exist, create it
