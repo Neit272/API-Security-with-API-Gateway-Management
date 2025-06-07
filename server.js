@@ -3,7 +3,6 @@ import helmet from 'helmet';
 import dotenv from 'dotenv';
 import apiRoutes from './routes/index.js';
 import { saveLog } from './SQLite3/logger.js';
-import fs from 'fs'; // Để ghi log vào file nếu cần
 
 dotenv.config(); // Configure dotenv to load .env variables
 
@@ -21,7 +20,7 @@ app.use('/api', apiRoutes);
 
 // Route nhận log từ Kong
 app.post('/logs', (req, res) => {
-  const log = req.body;  // <-- Đây là dòng bạn thiếu
+  const log = req.body;
   console.log('Received log:', req.body);
   const data = {
     client_ip: log.client_ip,
@@ -40,7 +39,6 @@ app.get('/', (req, res) => {
   res.send('API Server is running!');
 });
 
-// Dashboard tĩnh (nếu có)
 app.use('/dashboard', express.static('dashboard'));
 
 // Khởi chạy server
