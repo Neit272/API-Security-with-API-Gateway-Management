@@ -1,5 +1,4 @@
 import db from "../SQLite3/db.js";
-import { saveLog } from '../SQLite3/db.js';
 import bcrypt from "bcryptjs";
 import dotenv from "dotenv";
 import axios from "axios";
@@ -267,14 +266,91 @@ async function generateJWTToken(user, refresh_token = null) {
   };
 }
 
+const saveLogAsync = async (logData) => {
+  try {
+    const sanitizedLog = {
+      ...logData,
+      created_at: new Date().toISOString(),
+    };
+
+    // Sanitization logic (same as above)
+    if (
+      logData.request_uri?.includes("/signin") ||
+      logData.request_uri?.includes("/signup") ||
+      logData.request_uri?.includes("/refresh")
+    ) {
+      sanitizedLog.request_body = "[REDACTED - AUTH ENDPOINT]";
+    }
+
+    await new Promise((resolve, reject) => {
+      db.run(
+        "INSERT INTO logs (client_ip, request_uri, status, response_time, service, request_body, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        [
+          sanitizedLog.client_ip,
+          sanitizedLog.request_uri,
+          sanitizedLog.status,
+          sanitizedLog.response_time,
+          sanitizedLog.service,
+          sanitizedLog.request_body,
+          sanitizedLog.created_at,
+        ],
+        function (err) {
+          if (err) {
+            console.error("Error saving log:", err);
+            reject(err);
+          } else {
+            resolve(this.lastID);
+          }
+        }
+      );
+    });
+  } catch (error) {
+    console.error("Failed to save log:", error);
+    // Không throw error để không ảnh hưởng main flow
+  }
+};
+
+// Chuẩn hóa Error Response Format
+const standardErrorResponse = (res, status, message, details = null) => {
+  const response = {
+    success: false,
+    error: message,
+  };
+
+  if (details) {
+    response.details = details;
+  }
+
+  return res.status(status).json(response);
+};
+
+// Chuẩn hóa Success Response Format
+const standardSuccessResponse = (res, status, message, data = null) => {
+  const response = {
+    success: true,
+    message: message,
+  };
+
+  if (data) {
+    Object.assign(response, data);
+  }
+
+  return res.status(status).json(response);
+};
+
+// Cập nhật signup function
 export const signup = async (req, res) => {
+  const startTime = Date.now();
+
   try {
     const { username, password } = req.body;
 
     if (!username || !password) {
-      return res
-        .status(400)
-        .json({ error: "Username and password are required." });
+      return standardErrorResponse(
+        res,
+        400,
+        "Username and password are required."
+      );
     }
 
     const userExists = await new Promise((resolve, reject) => {
@@ -295,7 +371,7 @@ export const signup = async (req, res) => {
     });
 
     if (userExists) {
-      return res.status(409).json({ error: "Username already exists." });
+      return standardErrorResponse(res, 409, "Username already exists.");
     }
 
     const password_hash = await bcrypt.hash(password, saltRounds);
@@ -400,33 +476,52 @@ export const signup = async (req, res) => {
       });
     });
 
-    saveLog({
+    const responseTime = (Date.now() - startTime) / 1000;
+
+    // Log successful signup
+    await saveLogAsync({
       client_ip: req.ip,
       request_uri: req.originalUrl,
-      status: 201, // hoặc res.statusCode nếu đã gọi res.status()
-      response_time: 0.1, // nếu không đo được thì set tạm
-      service: 'auth-service'
+      status: 201,
+      response_time: responseTime,
+      service: "auth-service",
+      request_body: JSON.stringify(req.body), // Will be sanitized automatically
     });
 
-    res.status(201).json({ message: "User signed up successfully!", username });
+    return standardSuccessResponse(res, 201, "User signed up successfully!", {
+      username: username,
+    });
   } catch (error) {
-    if (error.status) {
-      res.status(error.status).json({ error: error.message });
-    } else {
-      console.error("Error during signup:", error);
-      res.status(500).json({ error: "Internal Server Error" });
-    }
+    const responseTime = (Date.now() - startTime) / 1000;
+
+    await saveLogAsync({
+      client_ip: req.ip,
+      request_uri: req.originalUrl,
+      status: error.status || 500,
+      response_time: responseTime,
+      service: "auth-service",
+      request_body: "[ERROR - REDACTED]",
+    });
+
+    return standardErrorResponse(
+      res,
+      error.status || 500,
+      error.message || "Internal Server Error"
+    );
   }
 };
 
+// Cập nhật signin function
 export const signin = async (req, res) => {
   try {
     const { username, password } = req.body;
 
     if (!username || !password) {
-      return res
-        .status(400)
-        .json({ error: "Username and password are required." });
+      return standardErrorResponse(
+        res,
+        400,
+        "Username and password are required."
+      );
     }
 
     const user = await new Promise((resolve, reject) => {
@@ -447,13 +542,13 @@ export const signin = async (req, res) => {
     });
 
     if (!user) {
-      return res.status(404).json({ error: "User not found." });
+      return standardErrorResponse(res, 404, "User not found.");
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password_hash);
 
     if (!isPasswordValid) {
-      return res.status(401).json({ error: "Invalid password." });
+      return standardErrorResponse(res, 401, "Invalid password.");
     }
 
     // Generate JWT tokens
@@ -461,8 +556,9 @@ export const signin = async (req, res) => {
       user
     );
 
-    // Return tokens to client
-    res.status(200).json({
+    // Chuẩn hóa JWT response format
+    return res.status(200).json({
+      success: true,
       message: "User signed in successfully!",
       username: user.username,
       access_token: accessToken,
@@ -470,101 +566,284 @@ export const signin = async (req, res) => {
       token_type: token_type,
       expires_in: `${
         jwt.decode(accessToken).exp - Math.floor(Date.now() / 1000)
-      } seconds`, // Countdown in seconds
+      } seconds`,
     });
-
-    console.log(`User ${username} signed in successfully.`);
   } catch (error) {
-    if (error.status) {
-      res.status(error.status).json({ error: error.message });
-    } else {
-      console.error("Error during signin:", error);
-      res.status(500).json({ error: "Internal Server Error" });
-    }
+    return standardErrorResponse(
+      res,
+      error.status || 500,
+      error.message || "Internal Server Error"
+    );
   }
 };
 
 export const signout = async (req, res) => {
-  
-}
+  const startTime = Date.now();
 
-export const refreshAccessToken = async (req, res) => {
   try {
     const { refresh_token } = req.body;
-    let user;
+    const authHeader = req.headers.authorization;
+
     if (!refresh_token) {
-      return res.status(400).json({ error: "Refresh token is required." });
+      return res.status(400).json({
+        error: "Refresh token is required for signout",
+      });
     }
 
+    // Hash the refresh token to find it in database
     const refreshTokenHash = CryptoJS.SHA256(refresh_token).toString(
       CryptoJS.enc.Hex
     );
 
-    const tokenData = await new Promise((resolve, reject) => {
+    // Find the refresh token in database
+    const tokenRecord = await new Promise((resolve, reject) => {
       db.get(
-        "SELECT * FROM refresh_tokens WHERE token_hash = ?",
+        "SELECT rt.*, u.username FROM refresh_tokens rt JOIN users u ON rt.user_id = u.id WHERE rt.token_hash = ?",
         [refreshTokenHash],
         (err, row) => {
           if (err) {
-            console.error("Database error during refresh token check:", err);
-            return reject({
-              status: 500,
-              message: "Internal Server Error during token check.",
-            });
+            console.error("Database error during token lookup:", err);
+            return reject({ status: 500, message: "Internal Server Error" });
+          }
+          if (!row) {
+            return reject({ status: 401, message: "Invalid refresh token" });
           }
           resolve(row);
         }
       );
     });
-    if (!tokenData) {
-      return res
-        .status(401)
-        .json({ error: "Invalid or expired refresh token." });
+
+    // Check if token is expired
+    const now = new Date();
+    const expiresAt = new Date(tokenRecord.expires_at);
+    if (now > expiresAt) {
+      // Token already expired, just clean it up
+      await deleteRefreshToken(refreshTokenHash);
+      return res.status(401).json({ error: "Refresh token has expired" });
     }
-    if (new Date(tokenData.expires_at) < new Date()) {
-      return res.status(401).json({ error: "Refresh token has expired." });
-    } else {
-      user = await new Promise((resolve, reject) => {
-        db.get(
-          "SELECT * FROM users WHERE id = ?",
-          [tokenData.user_id],
-          (err, row) => {
-            if (err) {
-              console.error("Database error during user retrieval:", err);
-              return reject({
-                status: 500,
-                message: "Internal Server Error during user retrieval.",
-              });
+
+    // Blacklist the current access token if provided
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const accessToken = authHeader.substring(7);
+      const accessTokenHash = CryptoJS.SHA256(accessToken).toString(
+        CryptoJS.enc.Hex
+      );
+
+      try {
+        // Decode token to get expiration
+        const decoded = jwt.decode(accessToken);
+        const expiresAt = new Date(decoded.exp * 1000);
+
+        // Add to blacklist
+        await new Promise((resolve, reject) => {
+          db.run(
+            "INSERT INTO blacklisted_tokens (token_hash, user_id, expires_at) VALUES (?, ?, ?)",
+            [accessTokenHash, tokenRecord.user_id, expiresAt.toISOString()],
+            function (err) {
+              if (err && !err.message.includes("UNIQUE constraint")) {
+                console.error("Error blacklisting token:", err);
+                return reject(err);
+              }
+              resolve(this.lastID);
             }
-            resolve(row);
-          }
+          );
+        });
+
+        console.log(
+          `Access token blacklisted for user: ${tokenRecord.username}`
         );
-      });
-      if (!user) {
-        return res.status(404).json({ error: "User not found." });
+      } catch (tokenError) {
+        console.warn("Failed to blacklist access token:", tokenError.message);
       }
     }
-    // Generate new JWT tokens
+
+    // Revoke JWT credentials in Kong (optional but recommended)
+    if (tokenRecord.kong_jwt_key) {
+      try {
+        // Get consumer ID first
+        const consumer = await axios.get(
+          `${KONG_ADMIN_URL}/consumers/${tokenRecord.username}`
+        );
+        const consumerId = consumer.data.id;
+
+        // Delete JWT credentials
+        await axios.delete(
+          `${KONG_ADMIN_URL}/consumers/${consumerId}/jwt/${tokenRecord.kong_jwt_key}`
+        );
+        console.log(
+          `Revoked JWT credentials for user: ${tokenRecord.username}`
+        );
+      } catch (kongError) {
+        // Log but don't fail signout if Kong cleanup fails
+        console.warn(
+          "Failed to revoke JWT credentials in Kong:",
+          kongError.message
+        );
+      }
+    }
+
+    // Delete refresh token from database
+    await deleteRefreshToken(refreshTokenHash);
+
+    // Log successful signout
+    const responseTime = (Date.now() - startTime) / 1000;
+    await saveLogAsync({
+      client_ip: req.ip,
+      request_uri: req.originalUrl,
+      status: 200,
+      response_time: responseTime,
+      service: "auth-service",
+      request_body: "[REDACTED - SIGNOUT ENDPOINT]",
+    });
+
+    res.status(200).json({
+      message: "User signed out successfully",
+      username: tokenRecord.username,
+    });
+
+    console.log(`User ${tokenRecord.username} signed out successfully`);
+  } catch (error) {
+    const responseTime = (Date.now() - startTime) / 1000;
+
+    // Log error
+    await saveLogAsync({
+      client_ip: req.ip,
+      request_uri: req.originalUrl,
+      status: error.status || 500,
+      response_time: responseTime,
+      service: "auth-service",
+      request_body: "[ERROR - REDACTED]",
+    });
+
+    if (error.status) {
+      res.status(error.status).json({ error: error.message });
+    } else {
+      console.error("Error during signout:", error);
+      res.status(500).json({ error: "Internal Server Error" });
+    }
+  }
+};
+
+export const refresh = async (req, res) => {
+  const startTime = Date.now();
+
+  try {
+    const { refresh_token } = req.body;
+
+    if (!refresh_token) {
+      return res.status(400).json({
+        error: "Refresh token is required",
+      });
+    }
+
+    // Hash the refresh token to find it in database
+    const refreshTokenHash = CryptoJS.SHA256(refresh_token).toString(
+      CryptoJS.enc.Hex
+    );
+
+    // Find the refresh token in database
+    const tokenRecord = await new Promise((resolve, reject) => {
+      db.get(
+        "SELECT rt.*, u.* FROM refresh_tokens rt JOIN users u ON rt.user_id = u.id WHERE rt.token_hash = ?",
+        [refreshTokenHash],
+        (err, row) => {
+          if (err) {
+            console.error("Database error during token lookup:", err);
+            return reject({ status: 500, message: "Internal Server Error" });
+          }
+          if (!row) {
+            return reject({ status: 401, message: "Invalid refresh token" });
+          }
+          resolve(row);
+        }
+      );
+    });
+
+    // Check if token is expired
+    const now = new Date();
+    const expiresAt = new Date(tokenRecord.expires_at);
+    if (now > expiresAt) {
+      // Token expired, clean it up
+      await deleteRefreshToken(refreshTokenHash);
+      return res.status(401).json({ error: "Refresh token has expired" });
+    }
+
+    // Generate new tokens using existing refresh token expiration
+    const user = {
+      id: tokenRecord.user_id,
+      username: tokenRecord.username,
+      secret: tokenRecord.secret,
+    };
+
+    const existingRefreshToken = {
+      expires_at: tokenRecord.expires_at,
+    };
+
     const { accessToken, refreshToken, token_type } = await generateJWTToken(
       user,
-      tokenData
+      existingRefreshToken
     );
-    // Return new tokens to client
+
+    // Log successful refresh
+    const responseTime = (Date.now() - startTime) / 1000;
+    await saveLogAsync({
+      client_ip: req.ip,
+      request_uri: req.originalUrl,
+      status: 200,
+      response_time: responseTime,
+      service: "auth-service",
+      request_body: "[REDACTED - REFRESH ENDPOINT]",
+    });
+
     res.status(200).json({
-      message: "Access token refreshed successfully!",
+      message: "Tokens refreshed successfully",
       username: user.username,
       access_token: accessToken,
       refresh_token: refreshToken,
       token_type: token_type,
       expires_in: `${
         jwt.decode(accessToken).exp - Math.floor(Date.now() / 1000)
-      } seconds`, // Countdown in seconds
+      } seconds`,
     });
+
+    console.log(`Tokens refreshed for user: ${user.username}`);
   } catch (error) {
+    const responseTime = (Date.now() - startTime) / 1000;
+
+    // Log error
+    await saveLogAsync({
+      client_ip: req.ip,
+      request_uri: req.originalUrl,
+      status: error.status || 500,
+      response_time: responseTime,
+      service: "auth-service",
+      request_body: "[ERROR - REDACTED]",
+    });
+
     if (error.status) {
-      return res.status(error.status).json({ error: error.message });
+      res.status(error.status).json({ error: error.message });
+    } else {
+      console.error("Error during token refresh:", error);
+      res.status(500).json({ error: "Internal Server Error" });
     }
-    console.error("Error during access token refresh:", error);
-    res.status(500).json({ error: "Internal Server Error" });
   }
+};
+
+const deleteRefreshToken = async (tokenHash) => {
+  return new Promise((resolve, reject) => {
+    db.run(
+      "DELETE FROM refresh_tokens WHERE token_hash = ?",
+      [tokenHash],
+      function (err) {
+        if (err) {
+          console.error("Database error deleting refresh token:", err);
+          return reject({
+            status: 500,
+            message: "Failed to delete refresh token",
+          });
+        }
+        resolve(this.changes);
+      }
+    );
+  });
 };

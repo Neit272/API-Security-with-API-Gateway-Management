@@ -1,13 +1,32 @@
 import express from "express";
-import { getApiKeyViaBasicAuth } from "../controllers/authControllers.js";
+import {
+  getApiKeyViaBasicAuth,
+  getApiKeyViaJWT,
+} from "../controllers/authControllers.js";
 
 const router = express.Router();
-router.get("/info", (req, res) => {
-  res.json({
-    message:
-      "This is a secure endpoint, accessible only with a valid BasicAuth.",
-  });
+
+// Support both Basic Auth and JWT for getting API key
+router.get("/getApiKey", async (req, res) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader) {
+    return res.status(401).json({
+      success: false,
+      error: "Authorization header required. Use Basic auth or Bearer token.",
+    });
+  }
+
+  if (authHeader.toLowerCase().startsWith("basic")) {
+    return getApiKeyViaBasicAuth(req, res);
+  } else if (authHeader.toLowerCase().startsWith("bearer")) {
+    return getApiKeyViaJWT(req, res);
+  } else {
+    return res.status(401).json({
+      success: false,
+      error: "Invalid authorization type. Use Basic auth or Bearer token.",
+    });
+  }
 });
-router.post("/apikey", getApiKeyViaBasicAuth);
 
 export default router;

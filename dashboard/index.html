@@ -1,235 +1,634 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
+
 <head>
   <meta charset="UTF-8">
-  <title>API JWT Demo Dashboard</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap/dist/css/bootstrap.min.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API Security Demo Dashboard</title>
   <style>
-    body { padding-top: 20px; }
-    .form-container { margin-bottom: 30px; padding: 20px; border: 1px solid #ddd; border-radius: 5px; background-color: #f9f9f9; }
-    h1, h2 { text-align: center; margin-bottom: 20px; }
-    pre { background-color: #e9ecef; padding: 15px; border: 1px solid #ced4da; border-radius: 5px; white-space: pre-wrap; word-break: break-all; }
-    .token-display { margin-top: 10px; font-size: 0.85em; word-break: break-all; padding: 5px; background-color: #fff; border: 1px solid #eee; border-radius: 3px;}
-    .btn-group-actions button { margin-right: 5px; }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(45deg, #2c3e50, #34495e);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 2.5em;
+      margin-bottom: 10px;
+    }
+
+    .header p {
+      font-size: 1.2em;
+      opacity: 0.9;
+    }
+
+    .main-content {
+      display: grid;
+      grid-template-columns: 1fr 350px;
+      gap: 20px;
+      padding: 30px;
+      min-height: 800px;
+    }
+
+    .zones-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .zone {
+      background: #f8f9fa;
+      border-radius: 15px;
+      padding: 25px;
+      border: 2px solid #e9ecef;
+      transition: all 0.3s ease;
+    }
+
+    .zone:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    }
+
+    .zone h3 {
+      font-size: 1.4em;
+      margin-bottom: 15px;
+      color: #2c3e50;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .zone-icon {
+      font-size: 1.5em;
+    }
+
+    .zone.injection {
+      border-color: #e74c3c;
+    }
+
+    .zone.key-management {
+      border-color: #f39c12;
+    }
+
+    .zone.auth-inconsistency {
+      border-color: #3498db;
+    }
+
+    .zone.rate-limit {
+      border-color: #9b59b6;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 600;
+      color: #495057;
+    }
+
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #dee2e6;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: border-color 0.3s ease;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: #007bff;
+    }
+
+    .btn {
+      padding: 12px 20px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      margin: 5px;
+      display: inline-block;
+      text-decoration: none;
+      text-align: center;
+    }
+
+    .btn-primary {
+      background: #007bff;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #0056b3;
+      transform: translateY(-1px);
+    }
+
+    .btn-danger {
+      background: #dc3545;
+      color: white;
+    }
+
+    .btn-danger:hover {
+      background: #c82333;
+      transform: translateY(-1px);
+    }
+
+    .btn-warning {
+      background: #ffc107;
+      color: #212529;
+    }
+
+    .btn-warning:hover {
+      background: #e0a800;
+    }
+
+    .btn-success {
+      background: #28a745;
+      color: white;
+    }
+
+    .btn-success:hover {
+      background: #1e7e34;
+    }
+
+    .btn-info {
+      background: #17a2b8;
+      color: white;
+    }
+
+    .btn-info:hover {
+      background: #138496;
+    }
+
+    .sidebar {
+      background: #2c3e50;
+      border-radius: 15px;
+      padding: 25px;
+      color: white;
+      position: sticky;
+      top: 20px;
+      height: fit-content;
+    }
+
+    .sidebar h3 {
+      margin-bottom: 20px;
+      color: #ecf0f1;
+    }
+
+    .token-display,
+    .log-console {
+      background: #34495e;
+      border-radius: 10px;
+      padding: 15px;
+      margin-bottom: 20px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      word-break: break-all;
+    }
+
+    .log-console {
+      height: 300px;
+      overflow-y: auto;
+      border: 1px solid #4a5568;
+    }
+
+    .log-entry {
+      margin-bottom: 10px;
+      padding: 8px;
+      border-radius: 5px;
+      border-left: 4px solid #007bff;
+    }
+
+    .log-entry.success {
+      background-color: rgba(40, 167, 69, 0.1);
+      border-color: #28a745;
+    }
+
+    .log-entry.error {
+      background-color: rgba(220, 53, 69, 0.1);
+      border-color: #dc3545;
+    }
+
+    .log-entry.warning {
+      background-color: rgba(255, 193, 7, 0.1);
+      border-color: #ffc107;
+    }
+
+    .alert {
+      padding: 15px;
+      border-radius: 8px;
+      margin: 10px 0;
+      font-weight: 600;
+    }
+
+    .alert-success {
+      background-color: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+
+    .alert-danger {
+      background-color: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+
+    .alert-warning {
+      background-color: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffeaa7;
+    }
+
+    .test-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    .malicious-examples {
+      background: #fff5f5;
+      border: 1px solid #fed7d7;
+      border-radius: 8px;
+      padding: 15px;
+      margin-top: 15px;
+    }
+
+    .malicious-examples h4 {
+      color: #c53030;
+      margin-bottom: 10px;
+    }
+
+    .malicious-examples .example {
+      background: #ffe5e5;
+      padding: 8px;
+      border-radius: 5px;
+      margin: 5px 0;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    .malicious-examples .example:hover {
+      background: #ffcccc;
+    }
+
+    .status-indicator {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+
+    .status-online {
+      background-color: #28a745;
+    }
+
+    .status-offline {
+      background-color: #dc3545;
+    }
+
+    .status-warning {
+      background-color: #ffc107;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 20px;
+      background-color: #e9ecef;
+      border-radius: 10px;
+      overflow: hidden;
+      margin: 10px 0;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(45deg, #007bff, #0056b3);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    @media (max-width: 1024px) {
+      .main-content {
+        grid-template-columns: 1fr;
+      }
+
+      .zones-container {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #007bff;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      animation: spin 1s linear infinite;
+      display: inline-block;
+      margin-right: 10px;
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
+    .truncated-key {
+      font-family: 'Courier New', monospace;
+      background-color: rgba(0, 123, 255, 0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.9em;
+      color: #0056b3;
+      border: 1px solid rgba(0, 123, 255, 0.2);
+    }
+
+    .token-comparison {
+      font-family: inherit;
+      font-size: 0.95em;
+      line-height: 1.6;
+    }
+
+    .token-comparison .old-key {
+      font-family: 'Courier New', monospace;
+      background-color: rgba(0, 123, 255, 0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.9em;
+      color: #dc3545;
+      font-weight: 600;
+      border: 1px solid rgba(0, 123, 255, 0.2);
+    }
+
+    .token-comparison .new-key {
+      font-family: 'Courier New', monospace;
+      background-color: rgba(0, 123, 255, 0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.9em;
+      color: #28a745;
+      font-weight: 600;
+      border: 1px solid rgba(0, 123, 255, 0.2);
+    }
+
+    .zone .alert {
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      max-width: 100%;
+    }
+
+    .session-management {
+      border-top: 1px solid #4a5568;
+      padding-top: 15px;
+      margin-top: 15px;
+    }
   </style>
 </head>
-<body class="container">
-  <header>
-    <h1>API JWT Security Demo</h1>
-  </header>
 
-  <div class="row">
-    <div class="col-md-6">
-      <!-- Signup Form -->
-      <div id="signupContainer" class="form-container">
-        <h2>Sign Up</h2>
-        <form id="signupForm">
-          <div class="mb-3">
-            <label for="signupUsername" class="form-label">Username</label>
-            <input type="text" class="form-control" id="signupUsername" name="username" placeholder="Enter username" required>
-          </div>
-          <div class="mb-3">
-            <label for="signupPassword" class="form-label">Password</label>
-            <input type="password" class="form-control" id="signupPassword" name="password" placeholder="Enter password" required>
-          </div>
-          <button class="btn btn-info w-100" type="submit">Sign Up</button>
-        </form>
-      </div>
-
-      <!-- Signin Form -->
-      <div id="signinContainer" class="form-container">
-        <h2>Sign In</h2>
-        <form id="loginForm">
-          <div class="mb-3">
-            <label for="loginUsername" class="form-label">Username</label>
-            <input type="text" class="form-control" id="loginUsername" name="username" placeholder="Enter username" required>
-          </div>
-          <div class="mb-3">
-            <label for="loginPassword" class="form-label">Password</label>
-            <input type="password" class="form-control" id="loginPassword" name="password" placeholder="Enter password" required>
-          </div>
-          <button class="btn btn-primary w-100" type="submit">Sign In</button>
-        </form>
-      </div>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>API Security Demo Dashboard</h1>
+      <p>Kong Gateway + Express API Security Demonstration</p>
     </div>
 
-    <div class="col-md-6">
-      <!-- Actions for Logged-in User -->
-      <div id="loggedInActions" style="display:none;" class="form-container">
-        <h2>User Actions</h2>
-        <div class="btn-group-actions mb-3">
-            <button id="getInfoBtn" class="btn btn-success">Get JWT Protected Info</button>
-            <button id="refreshTokenBtn" class="btn btn-warning">Refresh Access Token</button>
-            <button id="logoutBtn" class="btn btn-danger">Logout</button>
+    <div class="main-content">
+      <div class="zones-container">
+        <!-- Zone 1: Injection Test -->
+        <div class="zone injection">
+          <h3>
+            <span class="zone-icon">🔶</span>
+            1. Injection Test Zone
+          </h3>
+          <p><strong>Pain Point:</strong> SQL Injection & XSS Prevention</p>
+
+          <div class="form-group">
+            <label for="test-username">Username:</label>
+            <input type="text" id="test-username" placeholder="Enter username">
+          </div>
+
+          <div class="form-group">
+            <label for="test-password">Password:</label>
+            <input type="password" id="test-password" placeholder="Enter password">
+          </div>
+
+          <div class="test-buttons">
+            <button class="btn btn-primary" id="btn-normal-signup">
+              Đăng ký bình thường
+            </button>
+            <button class="btn btn-danger" id="btn-malicious-signup">
+              Test SQL Injection
+            </button>
+          </div>
+
+          <div class="malicious-examples">
+            <h4>Malicious Examples (Click to use):</h4>
+            <div class="example" data-username="admin'; DROP TABLE users;--" data-password="password123">
+              admin'; DROP TABLE users;--
+            </div>
+            <div class="example" data-username="<script>alert('XSS')</script>" data-password="password123">
+              &lt;script&gt;alert('XSS')&lt;/script&gt;
+            </div>
+            <div class="example" data-username="admin' OR '1'='1" data-password="password123">
+              admin' OR '1'='1
+            </div>
+          </div>
+
+          <div id="injection-result"></div>
         </div>
-        <div class="token-display">
-          <strong>Access Token:</strong><br><span id="accessTokenDisplay">-</span>
+
+        <!-- Zone 2: Key Management -->
+        <div class="zone key-management">
+          <h3>
+            <span class="zone-icon">🔶</span>
+            2. Key Management Zone
+          </h3>
+          <p><strong>Pain Point:</strong> API Key Rotation & Invalidation</p>
+
+          <div class="form-group">
+            <label for="key-username">Username:</label>
+            <input type="text" id="key-username" placeholder="Enter username">
+          </div>
+
+          <div class="form-group">
+            <label for="key-password">Password:</label>
+            <input type="password" id="key-password" placeholder="Enter password">
+          </div>
+
+          <div class="test-buttons">
+            <button class="btn btn-primary" id="btn-get-api-key">
+              Get API Key
+            </button>
+            <button class="btn btn-warning" id="btn-rotate-api-key">
+              Rotate Key (New Key)
+            </button>
+          </div>
+
+          <div class="test-buttons">
+            <button class="btn btn-success" id="btn-test-current-key">
+              Test Current Key
+            </button>
+            <button class="btn btn-info" id="btn-test-old-key">
+              Test Old Key
+            </button>
+          </div>
+
+          <div id="key-result"></div>
         </div>
-        <div class="token-display">
-          <strong>Refresh Token:</strong><br><span id="refreshTokenDisplay">-</span>
+
+        <!-- Zone 3: Auth Inconsistency -->
+        <div class="zone auth-inconsistency">
+          <h3>
+            <span class="zone-icon">🔶</span>
+            3. Auth Inconsistency Zone
+          </h3>
+          <p><strong>Pain Point:</strong> Different Auth Requirements per Route</p>
+
+          <div class="test-buttons">
+            <button class="btn btn-success" id="btn-test-public">
+              Test Public Route
+            </button>
+            <button class="btn btn-warning" id="btn-test-key">
+              Test API Key Route
+            </button>
+            <button class="btn btn-info" id="btn-test-jwt">
+              Test JWT Route
+            </button>
+          </div>
+
+          <div style="margin-top: 15px;">
+            <h4>Quick JWT Login:</h4>
+            <div class="form-group">
+              <input type="text" id="jwt-username" placeholder="Username" style="width: 48%; display: inline-block;">
+              <input type="password" id="jwt-password" placeholder="Password"
+                style="width: 48%; display: inline-block;">
+            </div>
+            <button class="btn btn-primary" id="btn-quick-jwt-login">
+              Login & Get JWT
+            </button>
+          </div>
+
+          <div id="auth-result"></div>
+        </div>
+
+        <!-- Zone 4: Rate Limiting -->
+        <div class="zone rate-limit">
+          <h3>
+            <span class="zone-icon">🔶</span>
+            4. Rate Limit Zone
+          </h3>
+          <p><strong>Pain Point:</strong> API Abuse Protection</p>
+
+          <div class="form-group">
+            <label for="spam-count">Number of requests:</label>
+            <select id="spam-count">
+              <option value="5">5 requests</option>
+              <option value="10" selected>10 requests</option>
+              <option value="15">15 requests</option>
+              <option value="20">20 requests</option>
+            </select>
+          </div>
+
+          <div class="test-buttons">
+            <button class="btn btn-danger" id="btn-spam-requests">
+              Spam Requests
+            </button>
+            <button class="btn btn-info" id="btn-check-rate-limit">
+              Check Rate Limit Status
+            </button>
+          </div>
+
+          <div class="progress-bar">
+            <div class="progress-fill" id="spam-progress"></div>
+          </div>
+
+          <div id="rate-limit-result"></div>
         </div>
       </div>
 
-      <div class="form-container">
-        <h2>Result / Server Response</h2>
-        <pre id="resultDisplay">Awaiting action...</pre>
+      <!-- Sidebar -->
+      <div class="sidebar">
+        <h3>Control Panel</h3>
+
+        <div class="token-display">
+          <h4>Current JWT Token:</h4>
+          <div id="jwt-token-display">Not logged in</div>
+        </div>
+
+        <div class="token-display">
+          <h4>Current API Key:</h4>
+          <div id="api-key-display">No API key</div>
+        </div>
+
+        <div class="token-display session-management">
+          <h4>Session Management:</h4>
+          <button class="btn btn-danger" id="btn-signout-all"
+            style="width: 100%; font-size: 16px; padding: 15px;">
+            Signout & Clear All
+          </button>
+        </div>
+
+        <div class="token-display">
+          <h4>System Status:</h4>
+          <div>
+            <span class="status-indicator" id="kong-status"></span>Kong Gateway: <span id="kong-text">Checking...</span>
+          </div>
+          <div>
+            <span class="status-indicator" id="api-status"></span>API Server: <span id="api-text">Checking...</span>
+          </div>
+        </div>
+
+        <h3>Activity Log</h3>
+        <div class="log-console" id="log-console">
+          <div class="log-entry">System initialized. Ready for testing.</div>
+        </div>
+
+        <button class="btn btn-warning" id="btn-clear-logs" style="width: 100%; margin-top: 10px;">
+          Clear Logs
+        </button>
       </div>
     </div>
   </div>
 
-  <script>
-    let currentAccessToken = '';
-    let currentRefreshToken = '';
-
-    const signupFormEl = document.getElementById('signupForm');
-    const loginFormEl = document.getElementById('loginForm');
-    const getInfoBtnEl = document.getElementById('getInfoBtn');
-    const refreshTokenBtnEl = document.getElementById('refreshTokenBtn');
-    const logoutBtnEl = document.getElementById('logoutBtn');
-    const resultDisplayEl = document.getElementById('resultDisplay');
-    
-    const loggedInActionsDivEl = document.getElementById('loggedInActions');
-    const signupContainerEl = document.getElementById('signupContainer');
-    const signinContainerEl = document.getElementById('signinContainer');
-
-    const accessTokenDisplayEl = document.getElementById('accessTokenDisplay');
-    const refreshTokenDisplayEl = document.getElementById('refreshTokenDisplay');
-
-    function displayResult(data, success = true) {
-      resultDisplayEl.textContent = JSON.stringify(data, null, 2);
-      resultDisplayEl.style.borderColor = success ? '#28a745' : '#dc3545'; // Green for success, Red for error
-    }
-
-    function updateTokenDisplays() {
-      accessTokenDisplayEl.textContent = currentAccessToken ? currentAccessToken : '-';
-      refreshTokenDisplayEl.textContent = currentRefreshToken ? currentRefreshToken : '-';
-    }
-
-    function showLoggedInUI() {
-      loggedInActionsDivEl.style.display = 'block';
-      signinContainerEl.style.display = 'none';
-      signupContainerEl.style.display = 'none';
-      updateTokenDisplays();
-    }
-
-    function showLoggedOutUI() {
-      loggedInActionsDivEl.style.display = 'none';
-      signinContainerEl.style.display = 'block';
-      loginFormEl.reset();
-      signupContainerEl.style.display = 'block';
-      signupFormEl.reset();
-      currentAccessToken = '';
-      currentRefreshToken = '';
-      updateTokenDisplays();
-      resultDisplayEl.textContent = 'Awaiting action...';
-      resultDisplayEl.style.borderColor = '#ced4da';
-    }
-
-    signupFormEl.onsubmit = async function(e) {
-      e.preventDefault();
-      const formData = new FormData(signupFormEl);
-      const data = Object.fromEntries(formData.entries());
-
-      try {
-        const res = await fetch('http://localhost:8000/api/public/signup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data)
-        });
-        const responseData = await res.json();
-        displayResult(responseData, res.ok);
-        if (res.ok) {
-          signupFormEl.reset();
-           alert('Signup successful! Please sign in.');
-        }
-      } catch (error) {
-        displayResult({ error: 'Network error or server unavailable during signup.', details: error.message }, false);
-      }
-    };
-
-    loginFormEl.onsubmit = async function(e) {
-      e.preventDefault();
-      const formData = new FormData(loginFormEl);
-      const data = Object.fromEntries(formData.entries());
-
-      try {
-        const res = await fetch('http://localhost:8000/api/public/signin', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data)
-        });
-        const responseData = await res.json();
-        displayResult(responseData, res.ok);
-        if (res.ok && responseData.access_token) {
-          currentAccessToken = responseData.access_token;
-          currentRefreshToken = responseData.refresh_token;
-          showLoggedInUI();
-        } else {
-          showLoggedOutUI();
-        }
-      } catch (error) {
-        displayResult({ error: 'Network error or server unavailable during signin.', details: error.message }, false);
-        showLoggedOutUI();
-      }
-    };
-
-    getInfoBtnEl.onclick = async function() {
-      if (!currentAccessToken) {
-        displayResult({ error: 'No access token available. Please sign in.' }, false);
-        return;
-      }
-      try {
-        const res = await fetch('http://localhost:8000/api/jwt/info', {
-          headers: { 'Authorization': 'Bearer ' + currentAccessToken }
-        });
-        const responseData = await res.json();
-        displayResult(responseData, res.ok);
-        if (!res.ok && res.status === 401) {
-            alert("Access token might be invalid or expired. Try refreshing the token or signing in again.");
-        }
-      } catch (error) {
-        displayResult({ error: 'Network error or server unavailable when getting info.', details: error.message }, false);
-      }
-    };
-
-    refreshTokenBtnEl.onclick = async function() {
-      if (!currentRefreshToken) {
-        displayResult({ error: 'No refresh token available. Please sign in.' }, false);
-        return;
-      }
-      try {
-        const res = await fetch('http://localhost:8000/api/public/refresh', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refresh_token: currentRefreshToken })
-        });
-        const responseData = await res.json();
-        displayResult(responseData, res.ok);
-        if (res.ok && responseData.access_token) {
-          currentAccessToken = responseData.access_token;
-          if (responseData.refresh_token) { // Server should return a new refresh token
-            currentRefreshToken = responseData.refresh_token;
-          }
-          updateTokenDisplays();
-          alert('Tokens refreshed successfully!');
-        } else {
-          alert('Failed to refresh token. You might need to sign in again.');
-          showLoggedOutUI(); 
-        }
-      } catch (error) {
-        displayResult({ error: 'Network error or server unavailable during token refresh.', details: error.message }, false);
-      }
-    };
-
-    logoutBtnEl.onclick = function() {
-      // For a real app, you would also call a server-side logout endpoint
-      // to invalidate the refresh token in the database if possible.
-      showLoggedOutUI();
-      displayResult({ message: 'Logged out successfully.' });
-    };
-
-    // Initial UI state
-    showLoggedOutUI();
-  </script>
+  <!-- Include external JavaScript file -->
+  <script src="dashboard.js"></script>
 </body>
+
 </html>

@@ -1,229 +1,230 @@
 _format_version: "3.0"
 consumers:
-- jwt_secrets:
-  - algorithm: HS256
-    key: A0GqSuooznSXBbFpbiQyrIqWxQmbRjeq
-    secret: MeLl8DajEkWMzwGZbx5nuM9SQ1UwIU5p
-  username: admin
-- keyauth_credentials:
-  - key: "190724"
-  username: my-client-app
-- jwt_secrets:
-  - algorithm: HS256
-    key: c9r6cZ6vHrZFSuzBsltdbfQNOQGsWyP7
-    secret: 9hozoxK6Efp46mvjsYEwgzhrxBOy4VYw
-  username: user2
+  - jwt_secrets:
+      - algorithm: HS256
+        key: A0GqSuooznSXBbFpbiQyrIqWxQmbRjeq
+        secret: MeLl8DajEkWMzwGZbx5nuM9SQ1UwIU5p
+    username: admin
+  - keyauth_credentials:
+      - key: "190724"
+    username: my-client-app
+  - jwt_secrets:
+      - algorithm: HS256
+        key: c9r6cZ6vHrZFSuzBsltdbfQNOQGsWyP7
+        secret: 9hozoxK6Efp46mvjsYEwgzhrxBOy4VYw
+    username: user2
 plugins:
-- config:
-    content_type: application/json
-    custom_fields_by_lua: null
-    flush_timeout: null
-    headers: null
-    http_endpoint: http://host.docker.internal:4000/logs
-    keepalive: 60000
-    method: POST
-    queue:
-      concurrency_limit: 1
-      initial_retry_delay: 0.01
-      max_batch_size: 1
-      max_bytes: null
-      max_coalescing_delay: 1
-      max_entries: 10000
-      max_retry_delay: 60
-      max_retry_time: 60
-    queue_size: null
-    retry_count: null
-    timeout: 10000
-  enabled: true
-  name: http-log
-  protocols:
-  - grpc
-  - grpcs
-  - http
-  - https
-services:
-- connect_timeout: 60000
-  enabled: true
-  host: host.docker.internal
-  name: api-security
-  plugins:
   - config:
-      credentials: true
-      exposed_headers: null
+      content_type: application/json
+      custom_fields_by_lua: null
+      flush_timeout: null
       headers: null
-      max_age: 3600
-      methods:
-      - GET
-      - HEAD
-      - PUT
-      - PATCH
-      - POST
-      - DELETE
-      - OPTIONS
-      - TRACE
-      - CONNECT
-      origins:
-      - http://localhost:3000
-      preflight_continue: false
-      private_network: false
+      http_endpoint: http://host.docker.internal:4000/logs
+      keepalive: 60000
+      method: POST
+      queue:
+        # concurrency_limit: 1
+        initial_retry_delay: 0.01
+        max_batch_size: 1
+        max_bytes: null
+        max_coalescing_delay: 1
+        max_entries: 10000
+        max_retry_delay: 60
+        max_retry_time: 60
+      queue_size: null
+      retry_count: null
+      timeout: 10000
     enabled: true
-    name: cors
+    name: http-log
     protocols:
-    - grpc
-    - grpcs
-    - http
-    - https
-  - config:
-      day: null
-      error_code: 429
-      error_message: API rate limit exceeded
-      fault_tolerant: true
-      header_name: null
-      hide_client_headers: false
-      hour: null
-      limit_by: consumer
-      minute: 5
-      month: null
-      path: /api/
-      policy: local
-      redis:
-        database: 0
-        host: null
-        password: null
-        port: 6379
-        server_name: null
-        ssl: false
-        ssl_verify: false
-        timeout: 2000
-        username: null
-      redis_database: 0
-      redis_host: null
-      redis_password: null
-      redis_port: 6379
-      redis_server_name: null
-      redis_ssl: false
-      redis_ssl_verify: false
-      redis_timeout: 2000
-      redis_username: null
-      second: null
-      sync_rate: -1
-      year: null
-    enabled: true
-    name: rate-limiting
-    protocols:
-    - grpc
-    - grpcs
-    - http
-    - https
-  port: 4000
-  protocol: http
-  read_timeout: 60000
-  retries: 5
-  routes:
-  - https_redirect_status_code: 426
-    name: api-auth-route
-    path_handling: v0
-    paths:
-    - /api/auth/
-    preserve_host: false
-    protocols:
-    - http
-    - https
-    regex_priority: 0
-    request_buffering: true
-    response_buffering: true
-    strip_path: false
-  - https_redirect_status_code: 426
-    name: api-jwt-route
-    path_handling: v0
-    paths:
-    - /api/jwt/
-    plugins:
-    - config:
-        anonymous: null
-        claims_to_verify: null
-        cookie_names: []
-        header_names:
-        - authorization
-        key_claim_name: iss
-        maximum_expiration: 0
-        realm: null
-        run_on_preflight: true
-        secret_is_base64: false
-        uri_param_names:
-        - jwt
-      enabled: true
-      name: jwt
-      protocols:
       - grpc
       - grpcs
       - http
       - https
-    preserve_host: false
-    protocols:
-    - http
-    - https
-    regex_priority: 0
-    request_buffering: true
-    response_buffering: true
-    strip_path: false
-  - https_redirect_status_code: 426
-    name: api-key-route
-    path_handling: v0
-    paths:
-    - /api/key/
+
+services:
+  - connect_timeout: 60000
+    enabled: true
+    host: host.docker.internal
+    name: api-security
     plugins:
-    - config:
-        anonymous: null
-        hide_credentials: true
-        key_in_body: false
-        key_in_header: true
-        key_in_query: false
-        key_names:
-        - apikey
-        realm: null
-        run_on_preflight: true
-      enabled: true
-      name: key-auth
-      protocols:
-      - grpc
-      - grpcs
-      - http
-      - https
-    preserve_host: false
-    protocols:
-    - http
-    - https
-    regex_priority: 0
-    request_buffering: true
-    response_buffering: true
-    strip_path: false
-  - https_redirect_status_code: 426
-    methods:
-    - POST
-    name: api-logs-route
-    path_handling: v0
-    paths:
-    - /logs
-    preserve_host: false
-    protocols:
-    - http
-    - https
-    regex_priority: 0
-    request_buffering: true
-    response_buffering: true
-    strip_path: true
-  - https_redirect_status_code: 426
-    name: api-public-route
-    path_handling: v0
-    paths:
-    - /api/public/
-    preserve_host: false
-    protocols:
-    - http
-    - https
-    regex_priority: 0
-    request_buffering: true
-    response_buffering: true
-    strip_path: false
-  write_timeout: 60000
+      - config:
+          credentials: true
+          exposed_headers: null
+          headers: null
+          max_age: 3600
+          methods:
+            - GET
+            - HEAD
+            - PUT
+            - PATCH
+            - POST
+            - DELETE
+            - OPTIONS
+            - TRACE
+            - CONNECT
+          origins:
+            - http://localhost:4000
+          preflight_continue: false
+          private_network: false
+        enabled: true
+        name: cors
+        protocols:
+          - grpc
+          - grpcs
+          - http
+          - https
+      - config:
+          day: null
+          error_code: 429
+          error_message: API rate limit exceeded
+          fault_tolerant: true
+          header_name: null
+          hide_client_headers: false
+          hour: null
+          limit_by: consumer
+          minute: 5
+          month: null
+          path: /api/
+          policy: local
+          redis:
+            database: 0
+            host: null
+            password: null
+            port: 6379
+            server_name: null
+            ssl: false
+            ssl_verify: false
+            timeout: 2000
+            username: null
+          redis_database: 0
+          redis_host: null
+          redis_password: null
+          redis_port: 6379
+          redis_server_name: null
+          redis_ssl: false
+          redis_ssl_verify: false
+          redis_timeout: 2000
+          redis_username: null
+          second: null
+          sync_rate: -1
+          year: null
+        enabled: true
+        name: rate-limiting
+        protocols:
+          - grpc
+          - grpcs
+          - http
+          - https
+    port: 4000
+    protocol: http
+    read_timeout: 60000
+    retries: 5
+    routes:
+      - https_redirect_status_code: 426
+        name: api-auth-route
+        path_handling: v0
+        paths:
+          - /api/auth/
+        preserve_host: false
+        protocols:
+          - http
+          - https
+        regex_priority: 0
+        request_buffering: true
+        response_buffering: true
+        strip_path: false
+      - https_redirect_status_code: 426
+        name: api-jwt-route
+        path_handling: v0
+        paths:
+          - /api/jwt/
+        plugins:
+          - config:
+              anonymous: null
+              claims_to_verify: null
+              cookie_names: []
+              header_names:
+                - authorization
+              key_claim_name: iss
+              maximum_expiration: 0
+              # realm: null
+              run_on_preflight: true
+              secret_is_base64: false
+              uri_param_names:
+                - jwt
+            enabled: true
+            name: jwt
+            protocols:
+              - grpc
+              - grpcs
+              - http
+              - https
+        preserve_host: false
+        protocols:
+          - http
+          - https
+        regex_priority: 0
+        request_buffering: true
+        response_buffering: true
+        strip_path: false
+      - https_redirect_status_code: 426
+        name: api-key-route
+        path_handling: v0
+        paths:
+          - /api/key/
+        plugins:
+          - config:
+              anonymous: null
+              hide_credentials: true
+              key_in_body: false
+              key_in_header: true
+              key_in_query: false
+              key_names:
+                - apikey
+              # realm: null
+              run_on_preflight: true
+            enabled: true
+            name: key-auth
+            protocols:
+              - grpc
+              - grpcs
+              - http
+              - https
+        preserve_host: false
+        protocols:
+          - http
+          - https
+        regex_priority: 0
+        request_buffering: true
+        response_buffering: true
+        strip_path: false
+      - https_redirect_status_code: 426
+        methods:
+          - POST
+        name: api-logs-route
+        path_handling: v0
+        paths:
+          - /logs
+        preserve_host: false
+        protocols:
+          - http
+          - https
+        regex_priority: 0
+        request_buffering: true
+        response_buffering: true
+        strip_path: true
+      - https_redirect_status_code: 426
+        name: api-public-route
+        path_handling: v0
+        paths:
+          - /api/public/
+        preserve_host: false
+        protocols:
+          - http
+          - https
+        regex_priority: 0
+        request_buffering: true
+        response_buffering: true
+        strip_path: false
+    write_timeout: 60000
