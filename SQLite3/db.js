@@ -69,6 +69,26 @@ db.serialize(() => {
       }
     }
   );
+
+  db.run(
+    `
+    CREATE TABLE IF NOT EXISTS blacklisted_tokens (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      token_hash TEXT UNIQUE NOT NULL,
+      user_id INTEGER NOT NULL,
+      blacklisted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      expires_at DATETIME NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+    )
+  `,
+    (err) => {
+      if (err) {
+        console.error("Could not create blacklisted_tokens table", err);
+      } else {
+        console.log("Blacklisted_tokens table ready");
+      }
+    }
+  );
 });
 
 export function saveLog(data) {

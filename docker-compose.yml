@@ -1,0 +1,60 @@
+version: "3.8"
+
+services:
+  kong-db:
+    image: postgres:15
+    container_name: kong-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: kong
+      POSTGRES_DB: kong
+      POSTGRES_PASSWORD: kong
+    ports:
+      - "5432:5432"
+    volumes:
+      - kong-db-data:/var/lib/postgresql/data
+
+  kong:
+    image: kong:3.9
+    container_name: kong
+    restart: unless-stopped
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: kong-db
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: kong
+      KONG_PG_DATABASE: kong
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: 0.0.0.0:8001, 0.0.0.0:8444 ssl
+      KONG_PROXY_LISTEN: 0.0.0.0:8000, 0.0.0.0:8443 ssl
+      KONG_MANAGER_LISTEN: 0.0.0.0:8002
+    depends_on:
+      - kong-db
+    ports:
+      - "8000:8000"   # Kong Proxy
+      - "8001:8001"   # Kong Admin API
+      - "8002:8002"   # Kong Manager (UI)
+      - "8443:8443"
+      - "8444:8444"
+
+  splunk:
+    image: splunk/splunk:9.4
+    container_name: splunk
+    environment:
+      - SPLUNK_START_ARGS=--accept-license
+      - SPLUNK_PASSWORD=splunkpass
+      - SPLUNK_HEC_TOKEN=f0ddbdcc-3a04-4fb9-b5b7-a6d989778a74
+      - SPLUNK_HEC_ENABLE=true
+    ports:
+      - "8008:8000"    # Splunk Web UI
+      - "8088:8088"    # HEC endpoint
+    volumes:
+      - splunk-data:/opt/splunk/var
+    restart: unless-stopped
+
+volumes:
+  kong-db-data:
+  splunk-data:

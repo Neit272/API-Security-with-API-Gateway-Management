@@ -1,5 +1,6 @@
 import express from "express";
 import helmet from "helmet";
+import cors from "cors"; // Thêm cors
 import dotenv from "dotenv";
 import axios from "axios";
 import apiRoutes from "./routes/index.js";
@@ -12,7 +13,24 @@ const PORT = process.env.server_local_port;
 const app = express();
 app.disable("x-powered-by");
 
-app.use(helmet());
+// Thêm CORS middleware
+app.use(
+  cors({
+    origin: [
+      "http://localhost:4000",
+      "http://localhost:8000",
+      "http://127.0.0.1:4000",
+    ],
+    credentials: true,
+  })
+);
+
+app.use(
+  helmet({
+    crossOriginEmbedderPolicy: false,
+    contentSecurityPolicy: false, // Disable CSP completely
+  })
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -53,7 +71,7 @@ app.post("/logs", async (req, res) => {
       console.error(
         "Error sending log to Splunk HEC:",
         error.code === "ECONNRESET"
-          ? "Connection was reset by Splunk (ECONNRESET)"
+          ? "Connection was reset by Splunk (ECONNRESET)" + error.message + error.response
           : error.response
           ? error.response.data
           : error.message
@@ -98,4 +116,5 @@ app.use("/dashboard", express.static("dashboard"));
 
 app.listen(PORT, "127.0.0.1", () => {
   console.log(`Server running at http://localhost:${PORT}`);
+  console.log(`Dashboard available at http://localhost:${PORT}/dashboard`);
 });
